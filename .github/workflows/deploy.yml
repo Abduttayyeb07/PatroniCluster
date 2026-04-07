@@ -13,15 +13,15 @@ jobs:
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
+          host: "38.242.211.91"
+          username: "root"
           password: ${{ secrets.SERVER_PASSWORD }}
           port: 22
           script: |
             set -e
 
             # Navigate to project directory
-            cd ${{ secrets.PROJECT_PATH || '~/zigchain-bot' }}
+            cd /root/patroni_monitoring/PatroniCluster
 
             # Pull latest changes
             echo "🔄 Pulling latest code..."
