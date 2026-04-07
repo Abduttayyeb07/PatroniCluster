@@ -1,15 +1,15 @@
 import type { DbStatus, SyncSnapshot } from "../monitor/checker.js";
+import { config } from "../config.js";
 
 /**
  * Escape special characters for Telegram MarkdownV2.
- * Must escape: _ * [ ] ( ) ~ ` > # + - = | { } . !
  */
 function esc(text: string): string {
   return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, "\\$1");
 }
 
 /**
- * Gap status emoji based on block gap.
+ * Gap status emoji.
  */
 function gapEmoji(gap: number | null): string {
   if (gap === null) return "⚫";
@@ -19,15 +19,38 @@ function gapEmoji(gap: number | null): string {
 }
 
 /**
- * Pad a string to a fixed width (right-pad).
+ * Timestamp string.
  */
-function pad(str: string, len: number): string {
-  return str.padEnd(len);
+function ts(): string {
+  return esc(new Date().toISOString().replace("T", " ").slice(0, 19));
 }
 
-/**
- * Format the global sync status as a MarkdownV2 monospace table.
- */
+// ═══════════════════════════════════════════════
+// /help — Command list
+// ═══════════════════════════════════════════════
+
+export function formatHelp(): string {
+  return [
+    "📋 *Available Commands*",
+    "",
+    ">/status  — Global sync status",
+    ">/ping  — Ping all servers",
+    ">/latency  — Latency report",
+    ">/sizes  — Database sizes",
+    ">/rpc  — RPC endpoint info",
+    ">/health  — Health check summary",
+    ">/servers  — Server \\& DB details",
+    ">/report  — Full comprehensive report",
+    ">/alerts  — Alert thresholds",
+    ">/uptime  — Bot uptime",
+    ">/help  — Show this list",
+  ].join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// /status — Global sync status (blockquote cards)
+// ═══════════════════════════════════════════════
+
 export function formatGlobalStatus(snapshot: SyncSnapshot): string {
   const { rpcHeight, rpcLatencyMs, dbs, timestamp } = snapshot;
 
@@ -36,144 +59,345 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
       ? `🌐 *RPC Height:* ${esc(rpcHeight.toLocaleString())}  ⏱ ${esc(String(rpcLatencyMs))}ms`
       : "🔴 *RPC:* UNREACHABLE";
 
-  const header = `${rpcLine}\n\n`;
-
-  // Build monospace table
-  const colDb = 6;
-  const colType = 12;
-  const colHeight = 12;
-  const colGap = 10;
-  const colStatus = 3;
-
-  const divider = `${"─".repeat(colDb + colType + colHeight + colGap + colStatus + 8)}`;
-
-  let table = "```\n";
-  table += `${pad("DB", colDb)} ${pad("Type", colType)} ${pad("Height", colHeight)} ${pad("Gap", colGap)} St\n`;
-  table += `${divider}\n`;
+  const lines: string[] = [rpcLine, ""];
 
   for (const db of dbs) {
-    const heightStr =
-      db.height !== null ? db.height.toLocaleString() : "DOWN";
-    const gapStr =
-      db.gap !== null ? db.gap.toLocaleString() : "N/A";
+    const srvEmoji = db.pingOk ? "🟢" : "🔴";
+    const dbEmoji = db.isDown ? "🔴" : gapEmoji(db.gap);
+    const pingStr = db.pingOk ? `${db.pingMs}ms` : "FAIL";
+    const heightStr = db.height !== null
+      ? db.height.toLocaleString()
+      : "DOWN";
+    const gapStr = db.gap !== null
+      ? db.gap.toLocaleString()
+      : "N/A";
 
-    table += `${pad(db.label, colDb)} ${pad(db.type, colType)} ${pad(heightStr, colHeight)} ${pad(gapStr, colGap)} ${db.isDown ? "🔴" : gapEmoji(db.gap)}\n`;
+    lines.push(
+      `>*${esc(db.label)}*  ·  ${esc(db.host)}`,
+      `>Srv: ${srvEmoji} ${esc(pingStr)}  ·  DB: ${dbEmoji}`,
+      `>H: ${esc(heightStr)}  ·  Gap: ${esc(gapStr)}`,
+      "",
+    );
   }
 
-  table += "```\n";
+  const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
+  lines.push(`🕐 _${t} UTC_`);
 
-  const ts = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
-  const footer = `\n🕐 _${ts} UTC_`;
-
-  return header + table + footer;
-}
-
-/**
- * Format a lag alert message.
- */
-export function formatAlert(db: DbStatus, rpcHeight: number): string {
-  const lines = [
-    `⚠️ *ALERT: ${esc(db.label)} LAGGING*`,
-    ``,
-    `📊 *Type:* ${esc(db.type)}`,
-    `🌐 *RPC Height:* ${esc(rpcHeight.toLocaleString())}`,
-    `💾 *DB Height:* ${esc((db.height ?? 0).toLocaleString())}`,
-    `📏 *Gap:* ${esc((db.gap ?? 0).toLocaleString())} blocks`,
-    ``,
-    `🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`,
-  ];
   return lines.join("\n");
 }
 
-/**
- * Format a DB down alert message.
- */
-export function formatDownAlert(label: string, type: string): string {
-  const lines = [
-    `🔴 *DOWN: ${esc(label)}*`,
-    ``,
-    `📊 *Type:* ${esc(type)}`,
-    `❌ Connection failed — unable to query block height`,
-    ``,
-    `🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`,
-  ];
+// ═══════════════════════════════════════════════
+// /ping — Server ping results
+// ═══════════════════════════════════════════════
+
+export function formatPing(snapshot: SyncSnapshot): string {
+  const lines: string[] = ["🏓 *Server Ping*", ""];
+
+  for (const db of snapshot.dbs) {
+    const emoji = db.pingOk ? "🟢" : "🔴";
+    const pingStr = db.pingOk ? `${db.pingMs}ms` : "Unreachable";
+
+    lines.push(
+      `>${emoji} *${esc(db.label)}*  ·  ${esc(db.host)}`,
+      `>     ${esc(pingStr)}`,
+      "",
+    );
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
   return lines.join("\n");
 }
 
-/**
- * Format a recovery message.
- */
-export function formatRecovery(db: DbStatus): string {
-  const lines = [
-    `✅ *RECOVERED: ${esc(db.label)}*`,
-    ``,
-    `📊 *Type:* ${esc(db.type)}`,
-    `📏 *Gap:* ${esc((db.gap ?? 0).toLocaleString())} blocks`,
-    `💾 *Height:* ${esc((db.height ?? 0).toLocaleString())}`,
-    ``,
-    `🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`,
-  ];
+// ═══════════════════════════════════════════════
+// /latency — Detailed latency report
+// ═══════════════════════════════════════════════
+
+export function formatLatency(
+  results: Array<{
+    label: string;
+    host: string;
+    port: number;
+    pingOk: boolean;
+    pingMs: number;
+    queryMs: number;
+  }>,
+): string {
+  const lines: string[] = ["⏱ *Latency Report*", ""];
+
+  for (const r of results) {
+    const emoji = r.pingOk ? "🟢" : "🔴";
+    const pingStr = r.pingOk ? `${r.pingMs}ms` : "FAIL";
+    const queryStr = r.queryMs >= 0 ? `${r.queryMs}ms` : "N/A";
+
+    lines.push(
+      `>${emoji} *${esc(r.label)}*  ·  ${esc(r.host)}`,
+      `>     Ping: ${esc(pingStr)}  ·  Query: ${esc(queryStr)}`,
+      "",
+    );
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
   return lines.join("\n");
 }
 
-/**
- * Format RPC unreachable alert.
- */
-export function formatRpcDown(): string {
-  const lines = [
-    `🔴 *RPC UNREACHABLE*`,
-    ``,
-    `Cannot fetch ZigChain block height`,
-    `Endpoint may be down or network issue detected`,
-    ``,
-    `🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`,
-  ];
-  return lines.join("\n");
-}
+// ═══════════════════════════════════════════════
+// /sizes — Database sizes
+// ═══════════════════════════════════════════════
 
-/**
- * Format database sizes as a monospace table.
- */
 export function formatSizes(
   sizes: Record<string, string | null>,
 ): string {
-  const colDb = 6;
-  const colSize = 20;
-  const divider = `${"─".repeat(colDb + colSize + 3)}`;
-
-  let table = "💾 *Database Sizes*\n\n```\n";
-  table += `${pad("DB", colDb)} ${pad("Size", colSize)}\n`;
-  table += `${divider}\n`;
+  const lines: string[] = ["💾 *Database Sizes*", ""];
 
   for (const [label, size] of Object.entries(sizes)) {
-    table += `${pad(label, colDb)} ${pad(size ?? "N/A", colSize)}\n`;
+    lines.push(`>📦 *${esc(label)}* — ${esc(size ?? "N/A")}`);
   }
 
-  table += "```\n";
-  table += `\n🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`;
-
-  return table;
+  lines.push("", `🕐 _${ts()} UTC_`);
+  return lines.join("\n");
 }
 
-/**
- * Format RPC info message.
- */
+// ═══════════════════════════════════════════════
+// /rpc — RPC endpoint info
+// ═══════════════════════════════════════════════
+
 export function formatRpcInfo(
   height: number | null,
   latencyMs: number,
   error?: string,
 ): string {
   if (height === null) {
-    return `🔴 *RPC Status*\n\n❌ Unreachable\n${error ? `Error: ${esc(error)}` : ""}`;
+    return [
+      "🔴 *RPC Status*",
+      "",
+      ">❌ Unreachable",
+      error ? `>${esc(error)}` : "",
+    ].join("\n");
   }
-  const lines = [
-    `🌐 *RPC Status*`,
-    ``,
-    `📊 *Height:* ${esc(height.toLocaleString())}`,
-    `⏱ *Latency:* ${esc(String(latencyMs))}ms`,
-    `🔗 *Endpoint:* ZigChain Mainnet`,
-    ``,
-    `🕐 _${esc(new Date().toISOString().replace("T", " ").slice(0, 19))} UTC_`,
+  return [
+    "🌐 *RPC Status*",
+    "",
+    `>📊 *Height:* ${esc(height.toLocaleString())}`,
+    `>⏱ *Latency:* ${esc(String(latencyMs))}ms`,
+    `>🔗 *Endpoint:* ZigChain Mainnet`,
+    "",
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// /health — Health check summary
+// ═══════════════════════════════════════════════
+
+export function formatHealth(snapshot: SyncSnapshot): string {
+  const { rpcHeight, dbs } = snapshot;
+  const totalDbs = dbs.length;
+  const upDbs = dbs.filter((d) => !d.isDown).length;
+  const downDbs = dbs.filter((d) => d.isDown);
+  const lagging = dbs.filter(
+    (d) => !d.isDown && d.gap !== null && d.gap > config.ALERT_GAP_THRESHOLD,
+  );
+  const serversUp = dbs.filter((d) => d.pingOk).length;
+
+  const overallEmoji =
+    downDbs.length > 0 ? "🔴" : lagging.length > 0 ? "🟡" : "🟢";
+  const overallText =
+    downDbs.length === 0 && lagging.length === 0
+      ? "All systems healthy"
+      : "Issues detected";
+
+  const lines: string[] = [
+    "🩺 *Health Check*",
+    "",
+    `>${overallEmoji} *Overall:* ${esc(overallText)}`,
+    `>🌐 RPC: ${rpcHeight !== null ? "✅ Online" : "❌ Offline"}`,
+    `>🖥 Servers: ${esc(String(serversUp))}/${esc(String(totalDbs))} reachable`,
+    `>💾 Databases: ${esc(String(upDbs))}/${esc(String(totalDbs))} responding`,
+    "",
   ];
+
+  if (downDbs.length > 0) {
+    lines.push("*⛔ Down:*");
+    for (const db of downDbs) {
+      lines.push(`>🔴 ${esc(db.label)} — ${esc(db.host)}`);
+    }
+    lines.push("");
+  }
+
+  if (lagging.length > 0) {
+    lines.push("*⚠️ Lagging:*");
+    for (const db of lagging) {
+      lines.push(
+        `>🟡 ${esc(db.label)} — Gap: ${esc((db.gap ?? 0).toLocaleString())}`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
   return lines.join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// /servers — Detailed server info
+// ═══════════════════════════════════════════════
+
+export function formatServers(snapshot: SyncSnapshot): string {
+  const lines: string[] = ["🖥 *Server Details*", ""];
+
+  // Group by unique host
+  const hostMap = new Map<
+    string,
+    { dbs: DbStatus[]; pingOk: boolean; pingMs: number }
+  >();
+
+  for (const db of snapshot.dbs) {
+    const existing = hostMap.get(db.host);
+    if (existing) {
+      existing.dbs.push(db);
+    } else {
+      hostMap.set(db.host, {
+        dbs: [db],
+        pingOk: db.pingOk,
+        pingMs: db.pingMs,
+      });
+    }
+  }
+
+  for (const [host, info] of hostMap) {
+    const srvEmoji = info.pingOk ? "🟢" : "🔴";
+    const pingStr = info.pingOk ? `${info.pingMs}ms` : "Unreachable";
+
+    lines.push(`>${srvEmoji} *${esc(host)}*  ·  ${esc(pingStr)}`);
+
+    for (const db of info.dbs) {
+      const dbEmoji = db.isDown ? "🔴" : gapEmoji(db.gap);
+      const dbType = db.type === "PostgreSQL" ? "PG" : "CH";
+      lines.push(
+        `>  ${dbEmoji} ${esc(db.label)} \\(${esc(dbType)}\\)`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// /report — Full comprehensive report
+// ═══════════════════════════════════════════════
+
+export function formatReport(
+  snapshot: SyncSnapshot,
+  sizes: Record<string, string | null>,
+): string {
+  const { rpcHeight, rpcLatencyMs, dbs, timestamp } = snapshot;
+  const upCount = dbs.filter((d) => !d.isDown).length;
+  const srvUp = dbs.filter((d) => d.pingOk).length;
+
+  const lines: string[] = [
+    "📋 *Full Report*",
+    "",
+    // RPC Section
+    ">🌐 *RPC*",
+    rpcHeight !== null
+      ? `>Height: ${esc(rpcHeight.toLocaleString())}  ·  Latency: ${esc(String(rpcLatencyMs))}ms`
+      : ">❌ Unreachable",
+    `>Servers: ${esc(String(srvUp))}/${esc(String(dbs.length))} up  ·  DBs: ${esc(String(upCount))}/${esc(String(dbs.length))} up`,
+    "",
+  ];
+
+  // Per-DB section
+  for (const db of dbs) {
+    const srvEmoji = db.pingOk ? "🟢" : "🔴";
+    const dbEmoji = db.isDown ? "🔴" : gapEmoji(db.gap);
+    const pingStr = db.pingOk ? `${db.pingMs}ms` : "FAIL";
+    const heightStr = db.height !== null
+      ? db.height.toLocaleString()
+      : "DOWN";
+    const gapStr = db.gap !== null
+      ? db.gap.toLocaleString()
+      : "N/A";
+    const sizeStr = sizes[db.label] ?? "N/A";
+
+    lines.push(
+      `>*${esc(db.label)}*  ·  ${esc(db.host)}`,
+      `>Srv: ${srvEmoji} ${esc(pingStr)}  ·  DB: ${dbEmoji}  ·  Size: ${esc(sizeStr)}`,
+      `>H: ${esc(heightStr)}  ·  Gap: ${esc(gapStr)}`,
+      "",
+    );
+  }
+
+  const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
+  lines.push(`🕐 _${t} UTC_`);
+
+  return lines.join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// /alerts — Alert configuration
+// ═══════════════════════════════════════════════
+
+export function formatAlertConfig(): string {
+  return [
+    "🔔 *Alert Configuration*",
+    "",
+    `>⚠️ *Lag threshold:* ${esc(String(config.ALERT_GAP_THRESHOLD))} blocks`,
+    `>✅ *Recovery threshold:* ${esc(String(config.RECOVERY_GAP_THRESHOLD))} blocks`,
+    `>⏱ *Check interval:* ${esc(String(config.HEARTBEAT_INTERVAL_MS / 1000))}s`,
+    `>📡 *Alert channels:* ${esc(String(config.ALERT_CHAT_IDS.length))}`,
+    `>👤 *Allowed users:* ${esc(String(config.ALLOWED_USER_IDS.length))}`,
+  ].join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// Alert messages (used by heartbeat)
+// ═══════════════════════════════════════════════
+
+export function formatAlert(db: DbStatus, rpcHeight: number): string {
+  return [
+    `⚠️ *ALERT: ${esc(db.label)} LAGGING*`,
+    "",
+    `>🖥 Server: ${esc(db.host)}`,
+    `>🌐 RPC Height: ${esc(rpcHeight.toLocaleString())}`,
+    `>💾 DB Height: ${esc((db.height ?? 0).toLocaleString())}`,
+    `>📏 Gap: ${esc((db.gap ?? 0).toLocaleString())} blocks`,
+    "",
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
+}
+
+export function formatDownAlert(label: string, type: string): string {
+  return [
+    `🔴 *DOWN: ${esc(label)}*`,
+    "",
+    `>📊 Type: ${esc(type)}`,
+    `>❌ Connection failed`,
+    "",
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
+}
+
+export function formatRecovery(db: DbStatus): string {
+  return [
+    `✅ *RECOVERED: ${esc(db.label)}*`,
+    "",
+    `>🖥 Server: ${esc(db.host)}`,
+    `>📏 Gap: ${esc((db.gap ?? 0).toLocaleString())} blocks`,
+    `>💾 Height: ${esc((db.height ?? 0).toLocaleString())}`,
+    "",
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
+}
+
+export function formatRpcDown(): string {
+  return [
+    `🔴 *RPC UNREACHABLE*`,
+    "",
+    `>Cannot fetch ZigChain block height`,
+    `>Endpoint may be down or network issue`,
+    "",
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
 }

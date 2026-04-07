@@ -6,13 +6,12 @@ import { registerCallbacks } from "./callbacks.js";
 
 /**
  * Create and configure the Grammy bot instance.
- * Sets up auth middleware, command handlers, and callback handlers.
+ * Sets up auth middleware, slash commands, and inline button handlers.
  */
 export function createBot(): Bot {
   const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
   // ── Auth Middleware ─────────────────────────────────
-  // Check every incoming update against the allowed user ID list.
   bot.use(async (ctx, next) => {
     const userId = ctx.from?.id;
 

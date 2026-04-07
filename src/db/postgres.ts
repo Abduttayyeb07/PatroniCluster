@@ -4,6 +4,8 @@ import { logger } from "../utils/logger.js";
 
 export interface PgInstance {
   label: string;
+  host: string;
+  port: number;
   client: Sql;
   dsn: string;
 }
@@ -16,18 +18,44 @@ function maskDsn(dsn: string): string {
 }
 
 /**
+ * Extract host/IP from a PostgreSQL DSN string.
+ */
+function extractHost(dsn: string): string {
+  try {
+    const match = dsn.match(/@([^:/]+)/);
+    return match?.[1] ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Extract port from a PostgreSQL DSN string.
+ */
+function extractPort(dsn: string): number {
+  try {
+    const match = dsn.match(/:(\d+)\//);
+    return match ? Number(match[1]) : 5432;
+  } catch {
+    return 5432;
+  }
+}
+
+/**
  * Create lazy-connect postgres clients for all 3 instances.
  * Logs connection details at startup for debugging.
  */
 export function createPgClients(): PgInstance[] {
   const dsns: Array<{ dsn: string; label: string }> = [
-    { dsn: config.PG_DSN_01, label: "PG-01" },
-    { dsn: config.PG_DSN_02, label: "PG-02" },
-    { dsn: config.PG_DSN_03, label: "PG-03" },
+    { dsn: config.PG_DSN_01, label: config.PG_LABEL_01 },
+    { dsn: config.PG_DSN_02, label: config.PG_LABEL_02 },
+    { dsn: config.PG_DSN_03, label: config.PG_LABEL_03 },
   ];
 
   return dsns.map(({ dsn, label }) => {
     const masked = maskDsn(dsn);
+    const host = extractHost(dsn);
+    const port = extractPort(dsn);
     logger.info(
       { label, dsn: masked, table: config.PG_INDEXER_TABLE },
       `PG client created → ${masked}`,
@@ -35,6 +63,8 @@ export function createPgClients(): PgInstance[] {
 
     return {
       label,
+      host,
+      port,
       dsn,
       client: postgres(dsn, {
         max: 2,

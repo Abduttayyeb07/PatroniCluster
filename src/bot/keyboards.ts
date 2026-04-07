@@ -1,14 +1,19 @@
 import { InlineKeyboard } from "grammy";
 
 /**
- * Main inline keyboard with 4 buttons in a 2×2 grid.
- * Reused across all bot replies so users always have controls.
+ * Main inline keyboard — 3 rows of buttons.
  */
 export function getMainKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📊 Global Status", "status")
-    .text("💾 DB Sizes", "sizes")
+    .text("📊 Status", "status")
+    .text("🏓 Ping", "ping")
+    .text("⏱ Latency", "latency")
     .row()
-    .text("🌐 RPC Info", "rpc")
+    .text("💾 Sizes", "sizes")
+    .text("🖥 Servers", "servers")
+    .text("🩺 Health", "health")
+    .row()
+    .text("🌐 RPC", "rpc")
+    .text("📋 Report", "report")
     .text("♻️ Refresh", "refresh");
 }

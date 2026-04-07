@@ -4,6 +4,7 @@ import { logger } from "../utils/logger.js";
 
 export interface ChInstance {
   label: string;
+  host: string;
   client: ClickHouseClient;
   database: string;
   table: string;
@@ -16,7 +17,7 @@ export interface ChInstance {
 export function createChClients(): ChInstance[] {
   const configs = [
     {
-      label: "CH-01",
+      label: config.CH_LABEL_01,
       host: config.CH_HOST_01,
       port: config.CH_PORT_01,
       user: config.CH_USER_01,
@@ -25,7 +26,7 @@ export function createChClients(): ChInstance[] {
       table: config.CH_TABLE_01,
     },
     {
-      label: "CH-02",
+      label: config.CH_LABEL_02,
       host: config.CH_HOST_02,
       port: config.CH_PORT_02,
       user: config.CH_USER_02,
@@ -44,6 +45,7 @@ export function createChClients(): ChInstance[] {
 
     return {
       label,
+      host,
       database,
       table,
       client: createClient({

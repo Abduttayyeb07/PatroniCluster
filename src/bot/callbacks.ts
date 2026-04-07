@@ -2,19 +2,25 @@ import type { Bot, Context } from "grammy";
 import {
   collectAllStatus,
   collectAllSizes,
+  collectLatency,
 } from "../monitor/checker.js";
 import { fetchRpcHeight } from "../rpc.js";
 import {
   formatGlobalStatus,
   formatSizes,
   formatRpcInfo,
+  formatLatency,
+  formatPing,
+  formatHealth,
+  formatServers,
+  formatReport,
+  formatAlertConfig,
 } from "../utils/format.js";
 import { getMainKeyboard } from "./keyboards.js";
 import { logger } from "../utils/logger.js";
 
 /**
- * Safely edit a message, swallowing the "message is not modified" error
- * that Telegram throws when the new content is identical to the current one.
+ * Safely edit a message, swallowing "message is not modified" errors.
  */
 async function safeEdit(
   ctx: Context,
@@ -24,110 +30,163 @@ async function safeEdit(
   try {
     await ctx.editMessageText(text, options);
   } catch (err: unknown) {
-    const errObj = err as Record<string, unknown>;
-    const desc = String(errObj?.["description"] ?? "");
-    // Telegram returns this when message content hasn't changed
+    const desc = String((err as Record<string, unknown>)?.["description"] ?? "");
     if (desc.includes("message is not modified")) {
-      logger.debug("Edit skipped — message content unchanged");
+      logger.debug("Edit skipped — unchanged");
       return;
     }
-    throw err; // re-throw anything else
+    throw err;
   }
 }
 
 /**
- * Register inline keyboard callback query handlers on the bot.
+ * Register all inline keyboard callback handlers.
  */
 export function registerCallbacks(bot: Bot): void {
+  // ── Status ────────────────────────────────────
   bot.callbackQuery("status", async (ctx) => {
     await ctx.answerCallbackQuery();
     try {
-      await safeEdit(ctx, "⏳ Fetching global status\\.\\.\\.", {
-        parse_mode: "MarkdownV2",
-      });
+      await safeEdit(ctx, "⏳ Fetching status\\.\\.\\.", { parse_mode: "MarkdownV2" });
       const snapshot = await collectAllStatus();
-      const text = formatGlobalStatus(snapshot);
-      await safeEdit(ctx, text, {
+      await safeEdit(ctx, formatGlobalStatus(snapshot), {
         parse_mode: "MarkdownV2",
         reply_markup: getMainKeyboard(),
       });
     } catch (err: unknown) {
-      logger.error({ err }, "Callback error: status");
-      await safeEdit(
-        ctx,
-        "❌ Failed to fetch status\\. Please try again\\.",
-        { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() },
-      );
+      logger.error({ err }, "Callback: status");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
     }
   });
 
-  bot.callbackQuery("refresh", async (ctx) => {
-    await ctx.answerCallbackQuery({ text: "Refreshing..." });
+  // ── Ping ──────────────────────────────────────
+  bot.callbackQuery("ping", async (ctx) => {
+    await ctx.answerCallbackQuery();
     try {
-      await safeEdit(ctx, "♻️ Refreshing\\.\\.\\.", {
-        parse_mode: "MarkdownV2",
-      });
+      await safeEdit(ctx, "🏓 Pinging servers\\.\\.\\.", { parse_mode: "MarkdownV2" });
       const snapshot = await collectAllStatus();
-      const text = formatGlobalStatus(snapshot);
-      await safeEdit(ctx, text, {
+      await safeEdit(ctx, formatPing(snapshot), {
         parse_mode: "MarkdownV2",
         reply_markup: getMainKeyboard(),
       });
     } catch (err: unknown) {
-      logger.error({ err }, "Callback error: refresh");
-      await safeEdit(
-        ctx,
-        "❌ Failed to refresh\\. Please try again\\.",
-        { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() },
-      );
+      logger.error({ err }, "Callback: ping");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
     }
   });
 
+  // ── Latency ───────────────────────────────────
+  bot.callbackQuery("latency", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "⏱ Measuring latency\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const results = await collectLatency();
+      await safeEdit(ctx, formatLatency(results), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: latency");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
+    }
+  });
+
+  // ── Sizes ─────────────────────────────────────
   bot.callbackQuery("sizes", async (ctx) => {
     await ctx.answerCallbackQuery();
     try {
-      await safeEdit(ctx, "⏳ Fetching database sizes\\.\\.\\.", {
-        parse_mode: "MarkdownV2",
-      });
+      await safeEdit(ctx, "💾 Fetching sizes\\.\\.\\.", { parse_mode: "MarkdownV2" });
       const sizes = await collectAllSizes();
-      const text = formatSizes(sizes);
-      await safeEdit(ctx, text, {
+      await safeEdit(ctx, formatSizes(sizes), {
         parse_mode: "MarkdownV2",
         reply_markup: getMainKeyboard(),
       });
     } catch (err: unknown) {
-      logger.error({ err }, "Callback error: sizes");
-      await safeEdit(
-        ctx,
-        "❌ Failed to fetch sizes\\. Please try again\\.",
-        { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() },
-      );
+      logger.error({ err }, "Callback: sizes");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
     }
   });
 
-  bot.callbackQuery("rpc", async (ctx) => {
+  // ── Servers ───────────────────────────────────
+  bot.callbackQuery("servers", async (ctx) => {
     await ctx.answerCallbackQuery();
     try {
-      await safeEdit(ctx, "⏳ Fetching RPC info\\.\\.\\.", {
-        parse_mode: "MarkdownV2",
-      });
-      const rpcResult = await fetchRpcHeight();
-      const text = formatRpcInfo(
-        rpcResult.height,
-        rpcResult.latencyMs,
-        rpcResult.error,
-      );
-      await safeEdit(ctx, text, {
+      await safeEdit(ctx, "🖥 Fetching server details\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const snapshot = await collectAllStatus();
+      await safeEdit(ctx, formatServers(snapshot), {
         parse_mode: "MarkdownV2",
         reply_markup: getMainKeyboard(),
       });
     } catch (err: unknown) {
-      logger.error({ err }, "Callback error: rpc");
-      await safeEdit(
-        ctx,
-        "❌ Failed to fetch RPC info\\. Please try again\\.",
-        { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() },
-      );
+      logger.error({ err }, "Callback: servers");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
+    }
+  });
+
+  // ── Health ────────────────────────────────────
+  bot.callbackQuery("health", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "🩺 Checking health\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const snapshot = await collectAllStatus();
+      await safeEdit(ctx, formatHealth(snapshot), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: health");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
+    }
+  });
+
+  // ── RPC ───────────────────────────────────────
+  bot.callbackQuery("rpc", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "🌐 Fetching RPC\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const result = await fetchRpcHeight();
+      await safeEdit(ctx, formatRpcInfo(result.height, result.latencyMs, result.error), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: rpc");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
+    }
+  });
+
+  // ── Report ────────────────────────────────────
+  bot.callbackQuery("report", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "📋 Generating report\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const [snapshot, sizes] = await Promise.all([
+        collectAllStatus(),
+        collectAllSizes(),
+      ]);
+      await safeEdit(ctx, formatReport(snapshot, sizes), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: report");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
+    }
+  });
+
+  // ── Refresh ───────────────────────────────────
+  bot.callbackQuery("refresh", async (ctx) => {
+    await ctx.answerCallbackQuery({ text: "Refreshing..." });
+    try {
+      await safeEdit(ctx, "♻️ Refreshing\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const snapshot = await collectAllStatus();
+      await safeEdit(ctx, formatGlobalStatus(snapshot), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: refresh");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
     }
   });
 }

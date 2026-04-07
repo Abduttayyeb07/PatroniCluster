@@ -46,6 +46,9 @@ const envSchema = z.object({
   PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),
   PG_DSN_03: z.string().min(1, "PG_DSN_03 is required"),
   PG_INDEXER_TABLE: z.string().min(1).default("indexer_table"),
+  PG_LABEL_01: z.string().default("PG-01"),
+  PG_LABEL_02: z.string().default("PG-02"),
+  PG_LABEL_03: z.string().default("PG-03"),
 
   // ClickHouse — Instance 01
   CH_HOST_01: z.string().min(1, "CH_HOST_01 is required"),
@@ -54,6 +57,7 @@ const envSchema = z.object({
   CH_PASS_01: z.string().default(""),
   CH_DB_01: z.string().default("default"),
   CH_TABLE_01: z.string().min(1).default("indexer_table"),
+  CH_LABEL_01: z.string().default("CH-01"),
 
   // ClickHouse — Instance 02
   CH_HOST_02: z.string().min(1, "CH_HOST_02 is required"),
@@ -62,6 +66,7 @@ const envSchema = z.object({
   CH_PASS_02: z.string().default(""),
   CH_DB_02: z.string().default("default"),
   CH_TABLE_02: z.string().min(1).default("indexer_table"),
+  CH_LABEL_02: z.string().default("CH-02"),
 
   // Thresholds
   ALERT_GAP_THRESHOLD: z.coerce.number().int().positive().default(500),
