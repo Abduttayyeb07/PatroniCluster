@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+logs/
+*.log
+.git/
+.gitignore
+README.md
+zigchain-monitor.service
+docker-compose.yml
+Dockerfile
+.dockerignore

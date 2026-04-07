@@ -1,0 +1,17 @@
+[Unit]
+Description=ZigChain Indexer Sync Monitor Bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/zigchain-bot
+EnvironmentFile=/opt/zigchain-bot/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zigchain-bot
+
+[Install]
+WantedBy=multi-user.target
