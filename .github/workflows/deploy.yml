@@ -10,28 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Decode SSH Key
+        run: |
+          echo "${{ secrets.SERVER_SSH_KEY }}" | base64 -d > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: "38.242.211.91"
           username: "root"
-          password: ${{ secrets.SERVER_PASSWORD }}
+          key_path: /tmp/ssh_key
+          passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
           port: 22
           script: |
             set -e
 
-            # Navigate to project directory
             cd /root/patroni_monitoring/PatroniCluster
 
-            # Pull latest changes
             echo "🔄 Pulling latest code..."
             git pull origin main
 
-            # Rebuild and restart the container
             echo "🐳 Rebuilding container..."
             docker compose up --build -d
 
-            # Verify container is running
             echo "✅ Checking container health..."
             sleep 5
             docker ps --filter name=zigchain-bot --format "table {{.Names}}\t{{.Status}}"
