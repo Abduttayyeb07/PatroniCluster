@@ -73,6 +73,9 @@ const envSchema = z.object({
   RECOVERY_GAP_THRESHOLD: z.coerce.number().int().positive().default(100),
   HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
 
+  // Scheduled report (hour in UTC, 0-23. Set to -1 to disable)
+  DAILY_REPORT_HOUR: z.coerce.number().int().min(-1).max(23).default(9),
+
   // Runtime
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 

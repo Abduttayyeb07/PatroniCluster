@@ -539,3 +539,94 @@ export function formatDiskAlert(stats: Map<string, ServerStats>, threshold = 20)
     `🕐 _${ts()} UTC_`,
   ].join("\n");
 }
+
+// ═══════════════════════════════════════════════
+// Daily scheduled report
+// ═══════════════════════════════════════════════
+
+export function formatDailyReport(
+  snapshot: SyncSnapshot,
+  serverStats: Map<string, ServerStats>,
+): string {
+  const lines: string[] = [
+    "📋 *Daily Status Report*",
+    `🕐 _${ts()} UTC_`,
+    "",
+  ];
+
+  // ── Sync overview ──
+  lines.push("*── 🔗 Sync Status ──*", "");
+  const rpcStr = snapshot.rpcHeight !== null
+    ? String(snapshot.rpcHeight)
+    : "Unreachable";
+  lines.push(`>🌐 RPC Height: *${esc(rpcStr)}*`);
+
+  const downCount = snapshot.dbs.filter((d) => d.isDown).length;
+  const lagging = snapshot.dbs.filter((d) => !d.isDown && d.gap !== null && d.gap > 100);
+  const healthy = snapshot.dbs.filter((d) => !d.isDown && (d.gap === null || d.gap <= 100));
+
+  lines.push(
+    `>✅ Healthy: ${healthy.length}  ⚠️ Lagging: ${lagging.length}  ❌ Down: ${downCount}`,
+    "",
+  );
+
+  for (const db of snapshot.dbs) {
+    const emoji = db.isDown ? "❌" : gapEmoji(db.gap);
+    const status = db.isDown
+      ? "DOWN"
+      : db.gap !== null
+        ? `${db.gap > 0 ? "+" : ""}${db.gap} blocks`
+        : "N/A";
+    lines.push(`>${emoji} ${esc(db.label)}: ${esc(status)}`);
+  }
+  lines.push("");
+
+  // ── Server stats ──
+  if (serverStats.size > 0) {
+    lines.push("*── 💿 Storage ──*", "");
+    for (const [host, s] of serverStats) {
+      const de = diskEmoji(s.diskFreePct);
+      lines.push(
+        `>${de} *${esc(host)}*`,
+        `>  ${esc(s.diskUsed)} / ${esc(s.diskTotal)} \\(${esc(s.diskUsePct)}\\) · Free: ${esc(s.diskFree)}`,
+      );
+    }
+    lines.push("");
+
+    lines.push("*── 🧠 Memory ──*", "");
+    for (const [host, s] of serverStats) {
+      const me = memEmoji(s.memUsedPct);
+      lines.push(
+        `>${me} *${esc(host)}*`,
+        `>  RAM: ${esc(s.memUsed)} / ${esc(s.memTotal)} \\(${s.memUsedPct}%\\) · Swap: ${esc(s.swapUsed)}/${esc(s.swapTotal)}`,
+      );
+    }
+    lines.push("");
+
+    lines.push("*── 📊 Load ──*", "");
+    for (const [host, s] of serverStats) {
+      lines.push(
+        `>🖥 *${esc(host)}*`,
+        `>  CPU: ${esc(s.cpuUsagePct)} \\(${esc(s.cpuCores)} cores\\) · Load: ${esc(s.loadAvg)} · Up: ${esc(s.uptime)}`,
+      );
+    }
+    lines.push("");
+  }
+
+  // ── Warnings ──
+  const diskWarnings: string[] = [];
+  for (const [host, s] of serverStats) {
+    if (s.diskFreePct <= 20) {
+      diskWarnings.push(`>  ⚠️ ${esc(host)}: only ${s.diskFreePct}% disk free`);
+    }
+    if (s.memUsedPct >= 90) {
+      diskWarnings.push(`>  ⚠️ ${esc(host)}: ${s.memUsedPct}% RAM used`);
+    }
+  }
+  if (diskWarnings.length > 0) {
+    lines.push("*── 🚨 Warnings ──*", "", ...diskWarnings, "");
+  }
+
+  lines.push("_Next report in 24h_");
+  return lines.join("\n");
+}

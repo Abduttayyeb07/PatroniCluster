@@ -5,6 +5,7 @@ import { createChClients, closeChClients } from "./db/clickhouse.js";
 import { initChecker } from "./monitor/checker.js";
 import { AlertState } from "./monitor/state.js";
 import { startHeartbeat } from "./monitor/heartbeat.js";
+import { startDailyReport } from "./monitor/scheduler.js";
 import { createBot } from "./bot/bot.js";
 
 async function main(): Promise<void> {
@@ -47,6 +48,9 @@ async function main(): Promise<void> {
 
   // ── 6. Start heartbeat loop ────────────────────────
   startHeartbeat(bot, alertState);
+
+  // ── 6b. Start daily report scheduler ───────────────
+  startDailyReport(bot);
 
   // ── 7. Graceful shutdown ───────────────────────────
   const shutdown = async (signal: string): Promise<void> => {
