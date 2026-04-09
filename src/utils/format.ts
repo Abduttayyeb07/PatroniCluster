@@ -408,22 +408,50 @@ export function formatRpcDown(): string {
 
 import type { ServerStats } from "../utils/ssh.js";
 
+const SSH_UNAVAILABLE = [
+  ">⚠️ SSH not configured or unreachable",
+  ">Ensure SSH key is mounted in Docker",
+].join("\n");
+
+function diskEmoji(freePct: number): string {
+  if (freePct <= 10) return "🔴";
+  if (freePct <= 20) return "🟠";
+  if (freePct <= 40) return "🟡";
+  return "🟢";
+}
+
+function memEmoji(usedPct: number): string {
+  if (usedPct >= 90) return "🔴";
+  if (usedPct >= 75) return "🟠";
+  return "🟢";
+}
+
+function bar(pct: number, len = 10): string {
+  const filled = Math.round((pct / 100) * len);
+  return "█".repeat(filled) + "░".repeat(len - filled);
+}
+
 export function formatServerTotal(stats: Map<string, ServerStats>): string {
   const lines: string[] = ["💿 *Server Storage*", ""];
 
   if (stats.size === 0) {
-    lines.push(">⚠️ SSH not configured or unreachable");
-    lines.push(">Set SSH\\_USER and SSH\\_PASSWORD in \\.env");
-    lines.push("", `🕐 _${ts()} UTC_`);
+    lines.push(SSH_UNAVAILABLE, "", `🕐 _${ts()} UTC_`);
     return lines.join("\n");
   }
 
   for (const [host, s] of stats) {
+    const usePct = parseInt(s.diskUsePct.replace("%", ""), 10) || 0;
+    const emoji = diskEmoji(s.diskFreePct);
+    const warn = s.diskFreePct <= 20
+      ? `\n>  ⚠️ *WARNING: Only ${s.diskFreePct}% free\\!*`
+      : "";
+
     lines.push(
-      `>🖥 *${esc(host)}*`,
-      `>  💿 Total: ${esc(s.diskTotal)}`,
+      `>${emoji} *${esc(host)}*`,
+      `>  💿 Total: *${esc(s.diskTotal)}*`,
       `>  💾 Used: ${esc(s.diskUsed)} \\(${esc(s.diskUsePct)}\\)`,
-      `>  📂 Free: ${esc(s.diskFree)}`,
+      `>  📂 Free: ${esc(s.diskFree)} \\(${s.diskFreePct}%\\)`,
+      `>  \\[${esc(bar(usePct))}\\] ${esc(s.diskUsePct)}${warn}`,
       "",
     );
   }
@@ -433,21 +461,25 @@ export function formatServerTotal(stats: Map<string, ServerStats>): string {
 }
 
 export function formatServerFree(stats: Map<string, ServerStats>): string {
-  const lines: string[] = ["📂 *Server Free Storage \\& Memory*", ""];
+  const lines: string[] = ["🧠 *Server Memory*", ""];
 
   if (stats.size === 0) {
-    lines.push(">⚠️ SSH not configured or unreachable");
-    lines.push("", `🕐 _${ts()} UTC_`);
+    lines.push(SSH_UNAVAILABLE, "", `🕐 _${ts()} UTC_`);
     return lines.join("\n");
   }
 
   for (const [host, s] of stats) {
+    const ramEmoji = memEmoji(s.memUsedPct);
+    const swapWarn = s.swapUsedPct > 50
+      ? "\n>  ⚠️ High swap usage\\!"
+      : "";
+
     lines.push(
-      `>🖥 *${esc(host)}*`,
-      `>  📂 Disk Free: ${esc(s.diskFree)} / ${esc(s.diskTotal)}`,
-      `>  🧠 RAM Free: ${esc(s.memFree)} / ${esc(s.memTotal)}`,
-      `>  💡 RAM Available: ${esc(s.memAvailable)}`,
-      `>  🔄 Swap: ${esc(s.swapUsed)} / ${esc(s.swapTotal)}`,
+      `>${ramEmoji} *${esc(host)}*`,
+      `>  🧠 RAM: ${esc(s.memUsed)} / ${esc(s.memTotal)} \\(${s.memUsedPct}% used\\)`,
+      `>  \\[${esc(bar(s.memUsedPct))}\\]`,
+      `>  💡 Available: ${esc(s.memAvailable)}`,
+      `>  🔄 Swap: ${esc(s.swapUsed)} / ${esc(s.swapTotal)} \\(${s.swapUsedPct}%\\)${swapWarn}`,
       "",
     );
   }
@@ -457,11 +489,10 @@ export function formatServerFree(stats: Map<string, ServerStats>): string {
 }
 
 export function formatServerLatency(stats: Map<string, ServerStats>): string {
-  const lines: string[] = ["📊 *Server Load \\& Uptime*", ""];
+  const lines: string[] = ["📊 *System Load*", ""];
 
   if (stats.size === 0) {
-    lines.push(">⚠️ SSH not configured or unreachable");
-    lines.push("", `🕐 _${ts()} UTC_`);
+    lines.push(SSH_UNAVAILABLE, "", `🕐 _${ts()} UTC_`);
     return lines.join("\n");
   }
 
@@ -469,13 +500,42 @@ export function formatServerLatency(stats: Map<string, ServerStats>): string {
     lines.push(
       `>🖥 *${esc(host)}*`,
       `>  ⚡ Load: ${esc(s.loadAvg)}`,
-      `>  🧮 CPU Cores: ${esc(s.cpuCores)}`,
+      `>  🧮 CPU: ${esc(s.cpuCores)} cores`,
+      `>  📊 CPU Usage: *${esc(s.cpuUsagePct)}*`,
       `>  ⏳ Uptime: ${esc(s.uptime)}`,
-      `>  💾 Disk: ${esc(s.diskUsePct)} used`,
       "",
     );
   }
 
   lines.push(`🕐 _${ts()} UTC_`);
   return lines.join("\n");
+}
+
+// ═══════════════════════════════════════════════
+// Disk space alert formatter
+// ═══════════════════════════════════════════════
+
+export function formatDiskAlert(stats: Map<string, ServerStats>, threshold = 20): string | null {
+  const warnings: string[] = [];
+
+  for (const [host, s] of stats) {
+    if (s.diskFreePct <= threshold) {
+      warnings.push(
+        `>🖥 *${esc(host)}*`,
+        `>  📂 Free: ${esc(s.diskFree)} / ${esc(s.diskTotal)} \\(${s.diskFreePct}%\\)`,
+        `>  💾 Used: ${esc(s.diskUsed)} \\(${esc(s.diskUsePct)}\\)`,
+        `>  ⚠️ *Below ${threshold}% threshold\\!*`,
+        "",
+      );
+    }
+  }
+
+  if (warnings.length === 0) return null;
+
+  return [
+    "🚨 *DISK SPACE WARNING*",
+    "",
+    ...warnings,
+    `🕐 _${ts()} UTC_`,
+  ].join("\n");
 }

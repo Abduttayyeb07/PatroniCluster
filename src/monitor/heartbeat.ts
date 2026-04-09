@@ -1,12 +1,13 @@
 import type { Bot } from "grammy";
 import { config } from "../config.js";
-import { collectAllStatus } from "./checker.js";
+import { collectAllStatus, collectServerInfo } from "./checker.js";
 import { AlertState } from "./state.js";
 import {
   formatAlert,
   formatDownAlert,
   formatRecovery,
   formatRpcDown,
+  formatDiskAlert,
 } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
 
@@ -30,6 +31,9 @@ async function broadcastAlert(bot: Bot, text: string): Promise<void> {
     }),
   );
 }
+
+/** Track which hosts already have an active disk alert (avoid spam) */
+const diskAlertActive = new Set<string>();
 
 /**
  * Start the background heartbeat loop.
@@ -111,6 +115,31 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
             "DB recovery alert sent",
           );
         }
+      }
+
+      // ── Disk space check (every tick) ─────────────
+      try {
+        const serverStats = await collectServerInfo();
+        if (serverStats.size > 0) {
+          // Check for low disk space
+          for (const [host, s] of serverStats) {
+            if (s.diskFreePct <= 20 && !diskAlertActive.has(host)) {
+              // New alert — fire it
+              diskAlertActive.add(host);
+              const alertText = formatDiskAlert(serverStats);
+              if (alertText) {
+                await broadcastAlert(bot, alertText);
+                logger.warn({ host, freePct: s.diskFreePct }, "Disk space alert sent");
+              }
+            } else if (s.diskFreePct > 25 && diskAlertActive.has(host)) {
+              // Recovered (with 5% hysteresis to avoid flapping)
+              diskAlertActive.delete(host);
+              logger.info({ host, freePct: s.diskFreePct }, "Disk space recovered");
+            }
+          }
+        }
+      } catch (diskErr: unknown) {
+        logger.debug({ err: diskErr }, "Disk check skipped");
       }
     } catch (err: unknown) {
       // Never let the heartbeat crash

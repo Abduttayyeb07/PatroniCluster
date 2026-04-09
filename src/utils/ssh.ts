@@ -39,16 +39,20 @@ export interface ServerStats {
   diskUsed: string;
   diskFree: string;
   diskUsePct: string;
+  diskFreePct: number; // numeric free % for alerts
   // free -h
   memTotal: string;
   memUsed: string;
   memFree: string;
   memAvailable: string;
+  memUsedPct: number; // numeric used %
   swapTotal: string;
   swapUsed: string;
-  // load
+  swapUsedPct: number;
+  // cpu & load
   loadAvg: string;
   cpuCores: string;
+  cpuUsagePct: string;
   uptime: string;
 }
 
@@ -69,7 +73,7 @@ function sshExec(host: string, command: string): Promise<string | null> {
     const timeout = setTimeout(() => {
       conn.end();
       resolve(null);
-    }, 10000);
+    }, 15000);
 
     conn.on("ready", () => {
       conn.exec(command, (err, stream) => {
@@ -83,8 +87,8 @@ function sshExec(host: string, command: string): Promise<string | null> {
         stream.on("data", (data: Buffer) => {
           output += data.toString();
         });
-        stream.stderr.on("data", (data: Buffer) => {
-          logger.debug({ host, stderr: data.toString() }, "SSH stderr");
+        stream.stderr.on("data", (_data: Buffer) => {
+          // silently ignore stderr
         });
         stream.on("close", () => {
           clearTimeout(timeout);
@@ -106,7 +110,7 @@ function sshExec(host: string, command: string): Promise<string | null> {
       username,
       privateKey: key,
       passphrase: config.SSH_PASSPHRASE || undefined,
-      readyTimeout: 8000,
+      readyTimeout: 10000,
     });
   });
 }
@@ -119,58 +123,87 @@ function parseDf(raw: string): {
   used: string;
   free: string;
   usePct: string;
+  freePct: number;
 } {
   const lines = raw.split("\n").filter((l) => l.trim() && !l.startsWith("Filesystem"));
   const joined = lines.join(" ");
   const parts = joined.trim().split(/\s+/);
   const pctIdx = parts.findIndex((p) => p.includes("%"));
   if (pctIdx >= 3) {
+    const usePctStr = parts[pctIdx] ?? "0%";
+    const usePctNum = parseInt(usePctStr.replace("%", ""), 10) || 0;
     return {
       total: parts[pctIdx - 3] ?? "N/A",
       used: parts[pctIdx - 2] ?? "N/A",
       free: parts[pctIdx - 1] ?? "N/A",
-      usePct: parts[pctIdx] ?? "N/A",
+      usePct: usePctStr,
+      freePct: 100 - usePctNum,
     };
   }
-  return { total: "N/A", used: "N/A", free: "N/A", usePct: "N/A" };
+  return { total: "N/A", used: "N/A", free: "N/A", usePct: "N/A", freePct: 100 };
 }
 
 /**
- * Parse `free -h` output.
+ * Parse `free -h` and `free` (bytes) output.
  */
-function parseFree(raw: string): {
+function parseFree(rawH: string, rawBytes: string): {
   memTotal: string;
   memUsed: string;
   memFree: string;
   memAvailable: string;
+  memUsedPct: number;
   swapTotal: string;
   swapUsed: string;
+  swapUsedPct: number;
 } {
-  const defaults = {
+  const result = {
     memTotal: "N/A",
     memUsed: "N/A",
     memFree: "N/A",
     memAvailable: "N/A",
+    memUsedPct: 0,
     swapTotal: "N/A",
     swapUsed: "N/A",
+    swapUsedPct: 0,
   };
-  const lines = raw.split("\n");
-  const memLine = lines.find((l) => l.startsWith("Mem:"));
-  const swapLine = lines.find((l) => l.startsWith("Swap:"));
 
-  if (memLine) {
-    const parts = memLine.split(/\s+/);
-    defaults.memTotal = parts[1] ?? "N/A";
-    defaults.memUsed = parts[2] ?? "N/A";
-    defaults.memFree = parts[3] ?? "N/A";
-    defaults.memAvailable = parts[6] ?? parts[3] ?? "N/A";
+  // Human-readable values
+  const linesH = rawH.split("\n");
+  const memLineH = linesH.find((l) => l.startsWith("Mem:"));
+  const swapLineH = linesH.find((l) => l.startsWith("Swap:"));
+
+  if (memLineH) {
+    const parts = memLineH.split(/\s+/);
+    result.memTotal = parts[1] ?? "N/A";
+    result.memUsed = parts[2] ?? "N/A";
+    result.memFree = parts[3] ?? "N/A";
+    result.memAvailable = parts[6] ?? parts[3] ?? "N/A";
   }
-  if (swapLine) {
-    const parts = swapLine.split(/\s+/);
-    defaults.swapTotal = parts[1] ?? "N/A";
-    defaults.swapUsed = parts[2] ?? "N/A";
+  if (swapLineH) {
+    const parts = swapLineH.split(/\s+/);
+    result.swapTotal = parts[1] ?? "N/A";
+    result.swapUsed = parts[2] ?? "N/A";
   }
-  return defaults;
+
+  // Raw bytes for percentage calc
+  const linesB = rawBytes.split("\n");
+  const memLineB = linesB.find((l) => l.startsWith("Mem:"));
+  const swapLineB = linesB.find((l) => l.startsWith("Swap:"));
+
+  if (memLineB) {
+    const parts = memLineB.split(/\s+/);
+    const total = parseInt(parts[1] ?? "0", 10);
+    const used = parseInt(parts[2] ?? "0", 10);
+    result.memUsedPct = total > 0 ? Math.round((used / total) * 100) : 0;
+  }
+  if (swapLineB) {
+    const parts = swapLineB.split(/\s+/);
+    const total = parseInt(parts[1] ?? "0", 10);
+    const used = parseInt(parts[2] ?? "0", 10);
+    result.swapUsedPct = total > 0 ? Math.round((used / total) * 100) : 0;
+  }
+
+  return result;
 }
 
 /**
@@ -186,21 +219,53 @@ function parseLoad(raw: string): { loadAvg: string; uptime: string } {
 }
 
 /**
+ * Parse CPU usage from top -bn1 output.
+ */
+function parseCpu(raw: string): string {
+  // top output: %Cpu(s):  2.3 us,  1.0 sy, ... or
+  // Cpu(s):  2.3%us,  1.0%sy, ...
+  const match = raw.match(/%?Cpu\(s\):\s*([\d.]+)\s*%?\s*us,?\s*([\d.]+)\s*%?\s*sy/i);
+  if (match) {
+    const user = parseFloat(match[1] ?? "0");
+    const sys = parseFloat(match[2] ?? "0");
+    return `${Math.round(user + sys)}%`;
+  }
+  // Fallback: try idle parsing
+  const idleMatch = raw.match(/([\d.]+)\s*%?\s*id/i);
+  if (idleMatch) {
+    const idle = parseFloat(idleMatch[1] ?? "100");
+    return `${Math.round(100 - idle)}%`;
+  }
+  return "N/A";
+}
+
+/**
  * Collect server stats from a remote host via SSH.
  */
 export async function collectServerStats(host: string): Promise<ServerStats | null> {
-  const combined = await sshExec(
-    host,
-    "df -h / && echo '---SEPARATOR---' && free -h && echo '---SEPARATOR---' && uptime && echo '---SEPARATOR---' && nproc",
-  );
+  const cmd = [
+    "df -h /",
+    "echo '---SEP---'",
+    "free -h",
+    "echo '---SEP---'",
+    "free -b",
+    "echo '---SEP---'",
+    "uptime",
+    "echo '---SEP---'",
+    "nproc",
+    "echo '---SEP---'",
+    "top -bn1 | head -5",
+  ].join(" && ");
 
+  const combined = await sshExec(host, cmd);
   if (!combined) return null;
 
-  const sections = combined.split("---SEPARATOR---").map((s) => s.trim());
+  const sections = combined.split("---SEP---").map((s) => s.trim());
   const disk = parseDf(sections[0] ?? "");
-  const mem = parseFree(sections[1] ?? "");
-  const load = parseLoad(sections[2] ?? "");
-  const cpuCores = sections[3]?.trim() ?? "N/A";
+  const mem = parseFree(sections[1] ?? "", sections[2] ?? "");
+  const load = parseLoad(sections[3] ?? "");
+  const cpuCores = sections[4]?.trim() ?? "N/A";
+  const cpuUsagePct = parseCpu(sections[5] ?? "");
 
   return {
     host,
@@ -208,14 +273,18 @@ export async function collectServerStats(host: string): Promise<ServerStats | nu
     diskUsed: disk.used,
     diskFree: disk.free,
     diskUsePct: disk.usePct,
+    diskFreePct: disk.freePct,
     memTotal: mem.memTotal,
     memUsed: mem.memUsed,
     memFree: mem.memFree,
     memAvailable: mem.memAvailable,
+    memUsedPct: mem.memUsedPct,
     swapTotal: mem.swapTotal,
     swapUsed: mem.swapUsed,
+    swapUsedPct: mem.swapUsedPct,
     loadAvg: load.loadAvg,
     cpuCores,
+    cpuUsagePct,
     uptime: load.uptime,
   };
 }

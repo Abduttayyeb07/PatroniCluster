@@ -23,9 +23,9 @@ export function getMainKeyboard(): InlineKeyboard {
  */
 export function getServerKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("💿 Total Storage", "srv_total")
-    .text("📂 Free Storage", "srv_free")
+    .text("💿 Storage", "srv_total")
+    .text("🧠 Memory", "srv_free")
     .row()
-    .text("⏱ Server Latency", "srv_latency")
+    .text("📊 System Load", "srv_latency")
     .text("🏠 Home", "home");
 }
