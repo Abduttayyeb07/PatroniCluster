@@ -27,16 +27,21 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
-# Create logs directory with correct permissions
-RUN mkdir -p /app/logs && chown -R botuser:botgroup /app/logs
+# Create logs and SSH directories
+RUN mkdir -p /app/logs /app/.ssh && chown -R botuser:botgroup /app/logs /app/.ssh
+
+# Copy entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Switch to non-root user
 USER botuser
 
-# Health check — bot process must be alive
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "process.exit(0)" || exit 1
 
 ENV NODE_ENV=production
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "dist/index.js"]
