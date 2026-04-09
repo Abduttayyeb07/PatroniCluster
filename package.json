@@ -10,20 +10,28 @@
     "start": "node dist/index.js",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["zigchain", "telegram", "monitor", "blockchain", "indexer"],
+  "keywords": [
+    "zigchain",
+    "telegram",
+    "monitor",
+    "blockchain",
+    "indexer"
+  ],
   "license": "MIT",
   "dependencies": {
-    "grammy": "^1.30.0",
-    "postgres": "^3.4.4",
     "@clickhouse/client": "^1.4.1",
     "dotenv": "^16.4.5",
-    "zod": "^3.23.8",
+    "grammy": "^1.30.0",
     "pino": "^9.4.0",
-    "pino-pretty": "^11.2.2"
+    "pino-pretty": "^11.2.2",
+    "postgres": "^3.4.4",
+    "ssh2": "^1.17.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
+    "@types/node": "^22.7.9",
+    "@types/ssh2": "^1.15.5",
     "tsx": "^4.19.1",
-    "@types/node": "^22.7.9"
+    "typescript": "^5.6.3"
   }
 }

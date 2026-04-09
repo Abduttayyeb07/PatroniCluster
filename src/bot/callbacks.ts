@@ -3,6 +3,7 @@ import {
   collectAllStatus,
   collectAllSizes,
   collectLatency,
+  collectServerInfo,
 } from "../monitor/checker.js";
 import { fetchRpcHeight } from "../rpc.js";
 import {
@@ -15,8 +16,11 @@ import {
   formatServers,
   formatReport,
   formatAlertConfig,
+  formatServerTotal,
+  formatServerFree,
+  formatServerLatency,
 } from "../utils/format.js";
-import { getMainKeyboard } from "./keyboards.js";
+import { getMainKeyboard, getServerKeyboard } from "./keyboards.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -107,7 +111,7 @@ export function registerCallbacks(bot: Bot): void {
     }
   });
 
-  // ── Servers ───────────────────────────────────
+  // ── Servers (shows sub-menu) ──────────────────
   bot.callbackQuery("servers", async (ctx) => {
     await ctx.answerCallbackQuery();
     try {
@@ -115,10 +119,73 @@ export function registerCallbacks(bot: Bot): void {
       const snapshot = await collectAllStatus();
       await safeEdit(ctx, formatServers(snapshot), {
         parse_mode: "MarkdownV2",
-        reply_markup: getMainKeyboard(),
+        reply_markup: getServerKeyboard(),
       });
     } catch (err: unknown) {
       logger.error({ err }, "Callback: servers");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getServerKeyboard() });
+    }
+  });
+
+  // ── Server Total Storage ──────────────────────
+  bot.callbackQuery("srv_total", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "💿 Fetching total storage\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const info = await collectServerInfo();
+      await safeEdit(ctx, formatServerTotal(info), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getServerKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: srv_total");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getServerKeyboard() });
+    }
+  });
+
+  // ── Server Free Storage ───────────────────────
+  bot.callbackQuery("srv_free", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "📂 Fetching free storage\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const info = await collectServerInfo();
+      await safeEdit(ctx, formatServerFree(info), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getServerKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: srv_free");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getServerKeyboard() });
+    }
+  });
+
+  // ── Server Latency ────────────────────────────
+  bot.callbackQuery("srv_latency", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      await safeEdit(ctx, "⏱ Measuring server latency\\.\\.\\.", { parse_mode: "MarkdownV2" });
+      const info = await collectServerInfo();
+      await safeEdit(ctx, formatServerLatency(info), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getServerKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: srv_latency");
+      await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getServerKeyboard() });
+    }
+  });
+
+  // ── Home (back to main menu) ──────────────────
+  bot.callbackQuery("home", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    try {
+      const snapshot = await collectAllStatus();
+      await safeEdit(ctx, formatGlobalStatus(snapshot), {
+        parse_mode: "MarkdownV2",
+        reply_markup: getMainKeyboard(),
+      });
+    } catch (err: unknown) {
+      logger.error({ err }, "Callback: home");
       await safeEdit(ctx, "❌ Failed\\.", { parse_mode: "MarkdownV2", reply_markup: getMainKeyboard() });
     }
   });

@@ -75,6 +75,11 @@ const envSchema = z.object({
 
   // Runtime
   NODE_ENV: z.enum(["development", "production"]).default("development"),
+
+  // SSH — for remote server commands (df -h, free -h, etc.)
+  SSH_PORT: z.coerce.number().int().positive().default(22),
+  SSH_KEY_PATH: z.string().default(""),
+  SSH_PASSPHRASE: z.string().default(""),
 });
 
 export type Settings = z.infer<typeof envSchema>;

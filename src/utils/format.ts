@@ -401,3 +401,81 @@ export function formatRpcDown(): string {
     `🕐 _${ts()} UTC_`,
   ].join("\n");
 }
+
+// ═══════════════════════════════════════════════
+// Server sub-menu formatters (SSH-based)
+// ═══════════════════════════════════════════════
+
+import type { ServerStats } from "../utils/ssh.js";
+
+export function formatServerTotal(stats: Map<string, ServerStats>): string {
+  const lines: string[] = ["💿 *Server Storage*", ""];
+
+  if (stats.size === 0) {
+    lines.push(">⚠️ SSH not configured or unreachable");
+    lines.push(">Set SSH\\_USER and SSH\\_PASSWORD in \\.env");
+    lines.push("", `🕐 _${ts()} UTC_`);
+    return lines.join("\n");
+  }
+
+  for (const [host, s] of stats) {
+    lines.push(
+      `>🖥 *${esc(host)}*`,
+      `>  💿 Total: ${esc(s.diskTotal)}`,
+      `>  💾 Used: ${esc(s.diskUsed)} \\(${esc(s.diskUsePct)}\\)`,
+      `>  📂 Free: ${esc(s.diskFree)}`,
+      "",
+    );
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
+}
+
+export function formatServerFree(stats: Map<string, ServerStats>): string {
+  const lines: string[] = ["📂 *Server Free Storage \\& Memory*", ""];
+
+  if (stats.size === 0) {
+    lines.push(">⚠️ SSH not configured or unreachable");
+    lines.push("", `🕐 _${ts()} UTC_`);
+    return lines.join("\n");
+  }
+
+  for (const [host, s] of stats) {
+    lines.push(
+      `>🖥 *${esc(host)}*`,
+      `>  📂 Disk Free: ${esc(s.diskFree)} / ${esc(s.diskTotal)}`,
+      `>  🧠 RAM Free: ${esc(s.memFree)} / ${esc(s.memTotal)}`,
+      `>  💡 RAM Available: ${esc(s.memAvailable)}`,
+      `>  🔄 Swap: ${esc(s.swapUsed)} / ${esc(s.swapTotal)}`,
+      "",
+    );
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
+}
+
+export function formatServerLatency(stats: Map<string, ServerStats>): string {
+  const lines: string[] = ["📊 *Server Load \\& Uptime*", ""];
+
+  if (stats.size === 0) {
+    lines.push(">⚠️ SSH not configured or unreachable");
+    lines.push("", `🕐 _${ts()} UTC_`);
+    return lines.join("\n");
+  }
+
+  for (const [host, s] of stats) {
+    lines.push(
+      `>🖥 *${esc(host)}*`,
+      `>  ⚡ Load: ${esc(s.loadAvg)}`,
+      `>  🧮 CPU Cores: ${esc(s.cpuCores)}`,
+      `>  ⏳ Uptime: ${esc(s.uptime)}`,
+      `>  💾 Disk: ${esc(s.diskUsePct)} used`,
+      "",
+    );
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
+}

@@ -133,6 +133,34 @@ export async function fetchPgSize(
 }
 
 /**
+ * Fetch disk/storage info from PostgreSQL.
+ * Gets total size of all databases on the server + data directory size.
+ */
+export async function fetchPgDiskInfo(
+  client: Sql,
+  label: string,
+): Promise<{ total: string; dbUsed: string } | null> {
+  try {
+    const rows = await client`
+      SELECT
+        pg_size_pretty(sum(pg_database_size(datname))) AS db_used,
+        pg_size_pretty(pg_tablespace_size('pg_default')) AS total
+      FROM pg_database
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      total: String(row["total"] ?? "N/A"),
+      dbUsed: String(row["db_used"] ?? "N/A"),
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown PG error";
+    logger.error({ label, err: msg }, `PG disk info failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
  * Gracefully close all PG connections.
  */
 export async function closePgClients(instances: PgInstance[]): Promise<void> {

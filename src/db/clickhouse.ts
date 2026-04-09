@@ -140,6 +140,38 @@ export async function fetchChSize(
 }
 
 /**
+ * Fetch disk space info from ClickHouse system.disks table.
+ * Returns total, free, and used space in human-readable format.
+ */
+export async function fetchChDiskInfo(
+  client: ClickHouseClient,
+  label: string,
+): Promise<{ total: string; free: string; used: string } | null> {
+  try {
+    const resultSet = await client.query({
+      query: `
+        SELECT
+          formatReadableSize(total_space) AS total,
+          formatReadableSize(free_space) AS free,
+          formatReadableSize(total_space - free_space) AS used
+        FROM system.disks
+        WHERE name = 'default'
+        LIMIT 1
+      `,
+      format: "JSONEachRow",
+    });
+    const rows = await resultSet.json<{ total: string; free: string; used: string }>();
+    const row = rows[0];
+    if (!row) return null;
+    return { total: row.total, free: row.free, used: row.used };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown CH error";
+    logger.error({ label, err: msg }, `CH disk info failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
  * Gracefully close all ClickHouse connections.
  */
 export async function closeChClients(instances: ChInstance[]): Promise<void> {

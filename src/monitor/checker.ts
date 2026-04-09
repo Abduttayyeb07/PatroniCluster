@@ -3,11 +3,13 @@ import {
   type PgInstance,
   fetchPgHeight,
   fetchPgSize,
+  fetchPgDiskInfo,
 } from "../db/postgres.js";
 import {
   type ChInstance,
   fetchChHeight,
   fetchChSize,
+  fetchChDiskInfo,
 } from "../db/clickhouse.js";
 import { tcpPing, type PingResult } from "../utils/ping.js";
 import { logger } from "../utils/logger.js";
@@ -261,4 +263,28 @@ export async function collectLatency(): Promise<
   );
 
   return results;
+}
+
+import {
+  collectAllServerStats,
+  type ServerStats,
+} from "../utils/ssh.js";
+
+/**
+ * Get all unique server host IPs from configured DB instances.
+ */
+export function getAllHosts(): string[] {
+  const hosts: string[] = [];
+  for (const pg of pgInstances) hosts.push(pg.host);
+  for (const ch of chInstances) hosts.push(ch.host);
+  return [...new Set(hosts)];
+}
+
+/**
+ * Collect real server stats (disk, memory, load) via SSH.
+ * Uses df -h, free -h, and uptime on each unique server.
+ */
+export async function collectServerInfo(): Promise<Map<string, ServerStats>> {
+  const hosts = getAllHosts();
+  return collectAllServerStats(hosts);
 }

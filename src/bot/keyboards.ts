@@ -17,3 +17,15 @@ export function getMainKeyboard(): InlineKeyboard {
     .text("📋 Report", "report")
     .text("♻️ Refresh", "refresh");
 }
+
+/**
+ * Server sub-menu keyboard — 3 actions + home.
+ */
+export function getServerKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("💿 Total Storage", "srv_total")
+    .text("📂 Free Storage", "srv_free")
+    .row()
+    .text("⏱ Server Latency", "srv_latency")
+    .text("🏠 Home", "home");
+}
