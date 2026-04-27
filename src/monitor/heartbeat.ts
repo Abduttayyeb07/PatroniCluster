@@ -1,4 +1,5 @@
 import type { Bot } from "grammy";
+import { readFileSync, writeFileSync } from "node:fs";
 import { config } from "../config.js";
 import { collectAllStatus, collectServerInfo } from "./checker.js";
 import { AlertState } from "./state.js";
@@ -32,8 +33,32 @@ async function broadcastAlert(bot: Bot, text: string): Promise<void> {
   );
 }
 
-/** Track which hosts already have an active disk alert (avoid spam) */
-const diskAlertActive = new Set<string>();
+const DISK_STATE_FILE = process.env.DISK_STATE_FILE ?? "/tmp/disk_alert_state.json";
+
+/** host → true if a disk alert is currently active for that host */
+const diskAlertActive = new Map<string, boolean>();
+
+function loadDiskState(): void {
+  try {
+    const raw = readFileSync(DISK_STATE_FILE, "utf8");
+    const obj = JSON.parse(raw) as Record<string, boolean>;
+    for (const [host, active] of Object.entries(obj)) {
+      diskAlertActive.set(host, Boolean(active));
+    }
+    logger.info({ file: DISK_STATE_FILE, hosts: [...diskAlertActive.keys()] }, "Disk alert state loaded from file");
+  } catch {
+    // File not found or invalid — start fresh, that's fine
+  }
+}
+
+function saveDiskState(): void {
+  try {
+    const obj: Record<string, boolean> = Object.fromEntries(diskAlertActive);
+    writeFileSync(DISK_STATE_FILE, JSON.stringify(obj, null, 2), "utf8");
+  } catch (err: unknown) {
+    logger.debug({ err }, "Failed to persist disk alert state");
+  }
+}
 
 /**
  * Start the background heartbeat loop.
@@ -44,6 +69,8 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
   const intervalMs = config.HEARTBEAT_INTERVAL_MS;
   const alertThreshold = config.ALERT_GAP_THRESHOLD;
   const recoveryThreshold = config.RECOVERY_GAP_THRESHOLD;
+
+  loadDiskState();
 
   logger.info(
     { intervalMs, alertThreshold, recoveryThreshold },
@@ -123,17 +150,20 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
         if (serverStats.size > 0) {
           // Check for low disk space
           for (const [host, s] of serverStats) {
-            if (s.diskFreePct <= 20 && !diskAlertActive.has(host)) {
-              // New alert — fire it
-              diskAlertActive.add(host);
+            const wasActive = diskAlertActive.get(host) ?? false;
+
+            if (s.diskFreePct <= 20 && !wasActive) {
+              diskAlertActive.set(host, true);
+              saveDiskState();
               const alertText = formatDiskAlert(serverStats);
               if (alertText) {
                 await broadcastAlert(bot, alertText);
                 logger.warn({ host, freePct: s.diskFreePct }, "Disk space alert sent");
               }
-            } else if (s.diskFreePct > 25 && diskAlertActive.has(host)) {
-              // Recovered (with 5% hysteresis to avoid flapping)
-              diskAlertActive.delete(host);
+            } else if (s.diskFreePct > 25 && wasActive) {
+              // Recovered — 5% hysteresis to avoid flapping
+              diskAlertActive.set(host, false);
+              saveDiskState();
               logger.info({ host, freePct: s.diskFreePct }, "Disk space recovered");
             }
           }
