@@ -71,7 +71,7 @@ const envSchema = z.object({
   // Thresholds
   ALERT_GAP_THRESHOLD: z.coerce.number().int().positive().default(500),
   RECOVERY_GAP_THRESHOLD: z.coerce.number().int().positive().default(100),
-  HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(300_000),
 
   // Scheduled report (hour in UTC, 0-23. Set to -1 to disable)
   DAILY_REPORT_HOUR: z.coerce.number().int().min(-1).max(23).default(9),

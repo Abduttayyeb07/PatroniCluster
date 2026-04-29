@@ -12,7 +12,7 @@ Production-ready Telegram bot that monitors 5 blockchain indexer databases (3 Po
                    │  GET /status
                    ▼
 ┌─────────────────────────────────────────────┐
-│           Heartbeat Loop (60s)               │
+│           Heartbeat Loop (5 min)             │
 │                                              │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐       │
 │  │  PG-01  │ │  PG-02  │ │  PG-03  │       │
@@ -131,7 +131,7 @@ zigchain-bot/
 │   │   ├── postgres.ts       # PostgreSQL height/size queries
 │   │   └── clickhouse.ts     # ClickHouse height/size queries
 │   ├── monitor/
-│   │   ├── heartbeat.ts      # Background check loop (60s)
+│   │   ├── heartbeat.ts      # Background check loop (5 min)
 │   │   ├── state.ts          # Alert state transitions
 │   │   └── checker.ts        # Concurrent status collection
 │   ├── bot/
