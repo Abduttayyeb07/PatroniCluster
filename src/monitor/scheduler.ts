@@ -1,8 +1,29 @@
 import type { Bot } from "grammy";
+import { readFileSync, writeFileSync } from "node:fs";
 import { config } from "../config.js";
 import { collectAllStatus, collectServerInfo } from "./checker.js";
 import { formatDailyReport } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
+
+const REPORT_STATE_FILE = process.env.REPORT_STATE_FILE ?? "/tmp/daily_report_state.json";
+
+function loadLastReportDate(): string {
+  try {
+    const raw = readFileSync(REPORT_STATE_FILE, "utf8");
+    const obj = JSON.parse(raw) as { lastReportDate?: string };
+    return obj.lastReportDate ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastReportDate(date: string): void {
+  try {
+    writeFileSync(REPORT_STATE_FILE, JSON.stringify({ lastReportDate: date }), "utf8");
+  } catch (err: unknown) {
+    logger.debug({ err }, "Failed to persist daily report state");
+  }
+}
 
 /**
  * Send a MarkdownV2 message to ALL alert chat IDs.
@@ -34,7 +55,7 @@ export function startDailyReport(bot: Bot): void {
     return;
   }
 
-  let lastReportDate = "";
+  let lastReportDate = loadLastReportDate();
 
   logger.info({ reportHour }, "Daily report scheduler started");
 
@@ -50,6 +71,7 @@ export function startDailyReport(bot: Bot): void {
       }
 
       lastReportDate = todayStr;
+      saveLastReportDate(todayStr);
       logger.info({ date: todayStr, hour: reportHour }, "Generating daily report");
 
       // Collect all data
