@@ -40,6 +40,11 @@ const envSchema = z.object({
     .string()
     .url("RPC_URL must be a valid URL")
     .default("https://zigchain-mainnet.zigscan.net"),
+  RPC_LABEL_01: z.string().default("ZigScan"),
+  RPC_URL_02: z.string().url().default("https://cryptocomics-rpc.wickhub.cc"),
+  RPC_LABEL_02: z.string().default("CryptoComics"),
+  RPC_URL_03: z.string().url().default("https://public-zigchain-rpc.numia.xyz/"),
+  RPC_LABEL_03: z.string().default("Numia"),
 
   // PostgreSQL — 3 instances
   PG_DSN_01: z.string().min(1, "PG_DSN_01 is required"),

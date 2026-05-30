@@ -5,7 +5,7 @@ import {
   collectLatency,
   collectServerInfo,
 } from "../monitor/checker.js";
-import { fetchRpcHeight } from "../rpc.js";
+import { fetchAllRpcHeights } from "../rpc.js";
 import {
   formatGlobalStatus,
   formatSizes,
@@ -15,7 +15,6 @@ import {
   formatHealth,
   formatServers,
   formatReport,
-  formatAlertConfig,
   formatServerTotal,
   formatServerFree,
   formatServerLatency,
@@ -211,8 +210,8 @@ export function registerCallbacks(bot: Bot): void {
     await ctx.answerCallbackQuery();
     try {
       await safeEdit(ctx, "🌐 Fetching RPC\\.\\.\\.", { parse_mode: "MarkdownV2" });
-      const result = await fetchRpcHeight();
-      await safeEdit(ctx, formatRpcInfo(result.height, result.latencyMs, result.error), {
+      const rpcs = await fetchAllRpcHeights();
+      await safeEdit(ctx, formatRpcInfo(rpcs), {
         parse_mode: "MarkdownV2",
         reply_markup: getMainKeyboard(),
       });

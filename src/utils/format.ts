@@ -52,14 +52,18 @@ export function formatHelp(): string {
 // ═══════════════════════════════════════════════
 
 export function formatGlobalStatus(snapshot: SyncSnapshot): string {
-  const { rpcHeight, rpcLatencyMs, dbs, timestamp } = snapshot;
+  const { rpcs, dbs, timestamp } = snapshot;
 
-  const rpcLine =
-    rpcHeight !== null
-      ? `🌐 *RPC Height:* ${esc(rpcHeight.toLocaleString())}  ⏱ ${esc(String(rpcLatencyMs))}ms`
-      : "🔴 *RPC:* UNREACHABLE";
+  const lines: string[] = [];
 
-  const lines: string[] = [rpcLine, ""];
+  for (const rpc of rpcs) {
+    const emoji = rpc.height !== null ? "🟢" : "🔴";
+    const h = rpc.height !== null ? esc(rpc.height.toLocaleString()) : "DOWN";
+    const lat = rpc.height !== null ? esc(`${rpc.latencyMs}ms`) : "—";
+    lines.push(`>${emoji} *${esc(rpc.label)}:* ${h}  ⏱ ${lat}`);
+  }
+
+  lines.push("");
 
   for (const db of dbs) {
     const srvEmoji = db.pingOk ? "🟢" : "🔴";
@@ -161,28 +165,27 @@ export function formatSizes(
 // /rpc — RPC endpoint info
 // ═══════════════════════════════════════════════
 
-export function formatRpcInfo(
-  height: number | null,
-  latencyMs: number,
-  error?: string,
-): string {
-  if (height === null) {
-    return [
-      "🔴 *RPC Status*",
-      "",
-      ">❌ Unreachable",
-      error ? `>${esc(error)}` : "",
-    ].join("\n");
+import type { RpcEndpointResult } from "../rpc.js";
+
+export function formatRpcInfo(rpcs: RpcEndpointResult[]): string {
+  const lines: string[] = ["🌐 *RPC Endpoints*", ""];
+
+  for (const rpc of rpcs) {
+    const emoji = rpc.height !== null ? "🟢" : "🔴";
+    lines.push(`>${emoji} *${esc(rpc.label)}*`);
+    if (rpc.height !== null) {
+      lines.push(
+        `>  📊 Height: ${esc(rpc.height.toLocaleString())}`,
+        `>  ⏱ Latency: ${esc(String(rpc.latencyMs))}ms`,
+      );
+    } else {
+      lines.push(`>  ❌ ${esc(rpc.error ?? "Unreachable")}`);
+    }
+    lines.push("");
   }
-  return [
-    "🌐 *RPC Status*",
-    "",
-    `>📊 *Height:* ${esc(height.toLocaleString())}`,
-    `>⏱ *Latency:* ${esc(String(latencyMs))}ms`,
-    `>🔗 *Endpoint:* ZigChain Mainnet`,
-    "",
-    `🕐 _${ts()} UTC_`,
-  ].join("\n");
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
 }
 
 // ═══════════════════════════════════════════════
