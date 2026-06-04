@@ -444,7 +444,7 @@ function cpuAvgLine(host: string): string[] {
     const above = history.aboveThreshold[hours];
     const status = above === null ? "N/A" : above ? "ABOVE 50%" : "OK";
     const avgText = avg === null ? "N/A" : `${avg}%`;
-    lines.push(`>  ${hours}h avg: ${esc(avgText)} - ${esc(status)}`);
+    lines.push(`>  ${hours}h avg: ${esc(avgText)} \\- ${esc(status)}`);
   }
 
   lines.push(`>  Samples: ${esc(String(history.samples))}`);
