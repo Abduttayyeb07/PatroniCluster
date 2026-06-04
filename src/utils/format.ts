@@ -410,6 +410,7 @@ export function formatRpcDown(): string {
 // ═══════════════════════════════════════════════
 
 import type { ServerStats } from "../utils/ssh.js";
+import { getCpuAverages } from "../monitor/cpuHistory.js";
 
 const SSH_UNAVAILABLE = [
   ">⚠️ SSH not configured or unreachable",
@@ -432,6 +433,22 @@ function memEmoji(usedPct: number): string {
 function bar(pct: number, len = 10): string {
   const filled = Math.round((pct / 100) * len);
   return "█".repeat(filled) + "░".repeat(len - filled);
+}
+
+function cpuAvgLine(host: string): string[] {
+  const history = getCpuAverages(host);
+  const lines: string[] = [];
+
+  for (const hours of [6, 12, 24] as const) {
+    const avg = history.averages[hours];
+    const above = history.aboveThreshold[hours];
+    const status = above === null ? "N/A" : above ? "ABOVE 50%" : "OK";
+    const avgText = avg === null ? "N/A" : `${avg}%`;
+    lines.push(`>  ${hours}h avg: ${esc(avgText)} - ${esc(status)}`);
+  }
+
+  lines.push(`>  Samples: ${esc(String(history.samples))}`);
+  return lines;
 }
 
 export function formatServerTotal(stats: Map<string, ServerStats>): string {
@@ -505,6 +522,7 @@ export function formatServerLatency(stats: Map<string, ServerStats>): string {
       `>  ⚡ Load: ${esc(s.loadAvg)}`,
       `>  🧮 CPU: ${esc(s.cpuCores)} cores`,
       `>  📊 CPU Usage: *${esc(s.cpuUsagePct)}*`,
+      ...cpuAvgLine(host),
       `>  ⏳ Uptime: ${esc(s.uptime)}`,
       "",
     );
@@ -611,6 +629,7 @@ export function formatDailyReport(
       lines.push(
         `>🖥 *${esc(host)}*`,
         `>  CPU: ${esc(s.cpuUsagePct)} \\(${esc(s.cpuCores)} cores\\) · Load: ${esc(s.loadAvg)} · Up: ${esc(s.uptime)}`,
+        ...cpuAvgLine(host),
       );
     }
     lines.push("");

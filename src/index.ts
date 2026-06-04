@@ -6,6 +6,7 @@ import { initChecker } from "./monitor/checker.js";
 import { AlertState } from "./monitor/state.js";
 import { startHeartbeat } from "./monitor/heartbeat.js";
 import { startDailyReport } from "./monitor/scheduler.js";
+import { startCpuHistorySampler } from "./monitor/cpuHistory.js";
 import { createBot } from "./bot/bot.js";
 
 async function main(): Promise<void> {
@@ -17,6 +18,8 @@ async function main(): Promise<void> {
       alertGap: config.ALERT_GAP_THRESHOLD,
       recoveryGap: config.RECOVERY_GAP_THRESHOLD,
       heartbeat: config.HEARTBEAT_INTERVAL_MS,
+      cpuHistoryInterval: config.CPU_HISTORY_INTERVAL_MS,
+      cpuAvgThreshold: config.CPU_AVG_THRESHOLD,
       alertChats: config.ALERT_CHAT_IDS.length,
       allowedUsers: config.ALLOWED_USER_IDS.length,
     },
@@ -51,6 +54,7 @@ async function main(): Promise<void> {
 
   // ── 6b. Start daily report scheduler ───────────────
   startDailyReport(bot);
+  startCpuHistorySampler();
 
   // ── 7. Graceful shutdown ───────────────────────────
   const shutdown = async (signal: string): Promise<void> => {
