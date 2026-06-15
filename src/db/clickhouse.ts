@@ -37,7 +37,7 @@ export function createChClients(): ChInstance[] {
   ];
 
   return configs.map(({ label, host, port, user, password, database, table }) => {
-    const url = `http://${host}:${port}`;
+    const url = config.CLICKHOUSE_URLS || `http://${host}:${port}`;
     logger.info(
       { label, url, user, database, table },
       `CH client created → ${url} (db: ${database}, table: ${table})`,

@@ -55,6 +55,10 @@ const envSchema = z.object({
   PG_LABEL_02: z.string().default("PG-02"),
   PG_LABEL_03: z.string().default("PG-03"),
 
+  // Optional shared proxy URL — if set, both ClickHouse clients connect through
+  // this URL instead of http://<host>:<port>, while keeping their own db/table/creds.
+  CLICKHOUSE_URLS: z.string().default(""),
+
   // ClickHouse — Instance 01
   CH_HOST_01: z.string().min(1, "CH_HOST_01 is required"),
   CH_PORT_01: z.coerce.number().int().positive().default(8123),
