@@ -46,14 +46,16 @@ const envSchema = z.object({
   RPC_URL_03: z.string().url().default("https://public-zigchain-rpc.numia.xyz/"),
   RPC_LABEL_03: z.string().default("Numia"),
 
-  // PostgreSQL — 3 instances
+  // PostgreSQL — 4 instances
   PG_DSN_01: z.string().min(1, "PG_DSN_01 is required"),
   PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),
   PG_DSN_03: z.string().min(1, "PG_DSN_03 is required"),
+  PG_DSN_04: z.string().default(""),
   PG_INDEXER_TABLE: z.string().min(1).default("indexer_table"),
   PG_LABEL_01: z.string().default("PG-01"),
   PG_LABEL_02: z.string().default("PG-02"),
   PG_LABEL_03: z.string().default("PG-03"),
+  PG_LABEL_04: z.string().default("UAT"),
 
   // Optional shared proxy URL — if set, both ClickHouse clients connect through
   // this URL instead of http://<host>:<port>, while keeping their own db/table/creds.
