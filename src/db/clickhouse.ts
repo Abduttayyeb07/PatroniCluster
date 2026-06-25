@@ -25,15 +25,6 @@ export function createChClients(): ChInstance[] {
       database: config.CH_DB_01,
       table: config.CH_TABLE_01,
     },
-    {
-      label: config.CH_LABEL_02,
-      host: config.CH_HOST_02,
-      port: config.CH_PORT_02,
-      user: config.CH_USER_02,
-      password: config.CH_PASS_02,
-      database: config.CH_DB_02,
-      table: config.CH_TABLE_02,
-    },
   ];
 
   return configs.map(({ label, host, port, user, password, database, table }) => {
