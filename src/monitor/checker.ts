@@ -225,7 +225,8 @@ export function getAllHosts(): string[] {
   const hosts: string[] = [];
   for (const pg of pgInstances) hosts.push(pg.host);
   for (const ch of chInstances) hosts.push(ch.host);
-  return [...new Set(hosts)];
+  const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
+  return [...new Set(hosts)].filter((h) => !LOOPBACK.has(h));
 }
 
 export async function collectServerInfo(): Promise<Map<string, ServerStats>> {

@@ -51,9 +51,33 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── 3. Initialize DB clients ───────────────────────
+  // ── 3. SSH tunnel for ClickHouse Primary (if configured) ──
+  let chUrlOverride: string | undefined;
+  let chTunnel: { destroy(): void } | null = null;
+
+  if (config.CH_TUNNEL_SSH_HOST) {
+    logger.info(
+      { sshHost: config.CH_TUNNEL_SSH_HOST, localPort: config.CH_TUNNEL_LOCAL_PORT, remotePort: config.CH_TUNNEL_REMOTE_PORT },
+      "Opening SSH tunnel for ClickHouse Primary...",
+    );
+    try {
+      chTunnel = await openSshTunnel({
+        sshHost: config.CH_TUNNEL_SSH_HOST,
+        sshUser: config.CH_TUNNEL_SSH_USER,
+        remotePort: config.CH_TUNNEL_REMOTE_PORT,
+        localPort: config.CH_TUNNEL_LOCAL_PORT,
+      });
+      chUrlOverride = `http://127.0.0.1:${config.CH_TUNNEL_LOCAL_PORT}`;
+      logger.info({ chUrlOverride }, "ClickHouse URL rewritten for tunnel");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: msg }, "Failed to open SSH tunnel for ClickHouse — will connect directly");
+    }
+  }
+
+  // ── 4. Initialize DB clients ───────────────────────
   const pgClients = createPgClients(pgDsnOverrides);
-  const chClients = createChClients();
+  const chClients = createChClients(chUrlOverride);
 
   logger.info(
     {
@@ -95,6 +119,7 @@ async function main(): Promise<void> {
     await closePgClients(pgClients);
     await closeChClients(chClients);
     archiveTunnel?.destroy();
+    chTunnel?.destroy();
 
     logger.info("All connections closed. Goodbye.");
     process.exit(0);

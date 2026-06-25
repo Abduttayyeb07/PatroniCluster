@@ -46,22 +46,26 @@ function extractPort(dsn: string): number {
  * Logs connection details at startup for debugging.
  */
 export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04", string>> = {}): PgInstance[] {
-  const dsns: Array<{ dsn: string; label: string }> = [
-    { dsn: dsnOverrides["01"] ?? config.PG_DSN_01, label: config.PG_LABEL_01 },
-    { dsn: dsnOverrides["02"] ?? config.PG_DSN_02, label: config.PG_LABEL_02 },
-    { dsn: dsnOverrides["03"] ?? config.PG_DSN_03, label: config.PG_LABEL_03 },
+  // originalDsn is always the real server DSN (used for host/port display and SSH stats).
+  // dsn may be rewritten to a tunnel address for the actual connection.
+  const dsns: Array<{ dsn: string; originalDsn: string; label: string }> = [
+    { dsn: dsnOverrides["01"] ?? config.PG_DSN_01, originalDsn: config.PG_DSN_01, label: config.PG_LABEL_01 },
+    { dsn: dsnOverrides["02"] ?? config.PG_DSN_02, originalDsn: config.PG_DSN_02, label: config.PG_LABEL_02 },
+    { dsn: dsnOverrides["03"] ?? config.PG_DSN_03, originalDsn: config.PG_DSN_03, label: config.PG_LABEL_03 },
   ];
 
   // UAT is optional — only added when PG_DSN_04 is set
   const dsn04 = dsnOverrides["04"] ?? config.PG_DSN_04;
   if (dsn04) {
-    dsns.push({ dsn: dsn04, label: config.PG_LABEL_04 });
+    dsns.push({ dsn: dsn04, originalDsn: config.PG_DSN_04, label: config.PG_LABEL_04 });
   }
 
-  return dsns.map(({ dsn, label }) => {
+  return dsns.map(({ dsn, originalDsn, label }) => {
     const masked = maskDsn(dsn);
-    const host = extractHost(dsn);
-    const port = extractPort(dsn);
+    // Always extract host/port from the original DSN so Telegram status and SSH
+    // stats show the real server IP, not the tunnel's 127.0.0.1.
+    const host = extractHost(originalDsn);
+    const port = extractPort(originalDsn);
     logger.info(
       { label, dsn: masked, table: config.PG_INDEXER_TABLE },
       `PG client created → ${masked}`,

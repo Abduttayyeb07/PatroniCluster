@@ -14,7 +14,7 @@ export interface ChInstance {
  * Create ClickHouse clients for both instances.
  * Logs connection details at startup for debugging.
  */
-export function createChClients(): ChInstance[] {
+export function createChClients(urlOverride?: string): ChInstance[] {
   const configs = [
     {
       label: config.CH_LABEL_01,
@@ -28,7 +28,7 @@ export function createChClients(): ChInstance[] {
   ];
 
   return configs.map(({ label, host, port, user, password, database, table }) => {
-    const url = config.CLICKHOUSE_URLS || `http://${host}:${port}`;
+    const url = urlOverride ?? (config.CLICKHOUSE_URLS || `http://${host}:${port}`);
     logger.info(
       { label, url, user, database, table },
       `CH client created → ${url} (db: ${database}, table: ${table})`,
