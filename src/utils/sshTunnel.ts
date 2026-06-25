@@ -44,7 +44,7 @@ export function openSshTunnel(opts: TunnelOptions): Promise<SshTunnel> {
       try {
         return readFileSync(config.SSH_KEY_PATH);
       } catch {
-        return null;
+        return undefined;
       }
     })();
 
@@ -52,6 +52,9 @@ export function openSshTunnel(opts: TunnelOptions): Promise<SshTunnel> {
       reject(new Error(`SSH tunnel: key not found at ${config.SSH_KEY_PATH}`));
       return;
     }
+
+    // Capture as Buffer so TypeScript can resolve the type inside nested closures
+    const sshKey: Buffer = key as Buffer;
 
     let destroyed = false;
     let resolved = false;
@@ -149,7 +152,7 @@ export function openSshTunnel(opts: TunnelOptions): Promise<SshTunnel> {
         host: sshHost,
         port: sshPort,
         username: sshUser,
-        privateKey: key,
+        privateKey: sshKey,
         passphrase: config.SSH_PASSPHRASE || undefined,
         readyTimeout: 15_000,
       });
