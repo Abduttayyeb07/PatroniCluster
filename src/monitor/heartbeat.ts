@@ -85,7 +85,7 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
       if (snapshot.rpcHeight === null) {
         if (state.shouldAlertRpcDown()) {
           state.markRpcDown();
-          await broadcastAlert(bot, formatRpcDown());
+          await broadcastAlert(bot, formatRpcDown(snapshot.rpcs));
           logger.warn("RPC down alert sent");
         }
         // Can't check DB gaps without RPC — skip DB checks
@@ -106,7 +106,7 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
             state.markAlerted(db.label, "down");
             await broadcastAlert(
               bot,
-              formatDownAlert(db.label, db.type),
+              formatDownAlert(db.label, db.type, db.host),
             );
             logger.warn({ label: db.label }, "DB down alert sent");
           }

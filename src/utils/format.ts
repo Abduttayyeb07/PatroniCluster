@@ -371,11 +371,12 @@ export function formatAlert(db: DbStatus, rpcHeight: number): string {
   ].join("\n");
 }
 
-export function formatDownAlert(label: string, type: string): string {
+export function formatDownAlert(label: string, type: string, host: string): string {
   return [
     `🔴 *DOWN: ${esc(label)}*`,
     "",
     `>📊 Type: ${esc(type)}`,
+    `>🖥 Host: ${esc(host)}`,
     `>❌ Connection failed`,
     "",
     `🕐 _${ts()} UTC_`,
@@ -394,15 +395,20 @@ export function formatRecovery(db: DbStatus): string {
   ].join("\n");
 }
 
-export function formatRpcDown(): string {
-  return [
-    `🔴 *RPC UNREACHABLE*`,
-    "",
-    `>Cannot fetch ZigChain block height`,
-    `>Endpoint may be down or network issue`,
-    "",
-    `🕐 _${ts()} UTC_`,
-  ].join("\n");
+export function formatRpcDown(rpcs: RpcEndpointResult[]): string {
+  const lines: string[] = [`🔴 *RPC UNREACHABLE*`, ""];
+
+  for (const rpc of rpcs) {
+    lines.push(`>🌐 *${esc(rpc.label)}*`);
+    lines.push(`>  📡 ${esc(rpc.url)}`);
+    if (rpc.error) {
+      lines.push(`>  ❌ ${esc(rpc.error)}`);
+    }
+    lines.push("");
+  }
+
+  lines.push(`🕐 _${ts()} UTC_`);
+  return lines.join("\n");
 }
 
 // ═══════════════════════════════════════════════
