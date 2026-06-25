@@ -8,6 +8,7 @@ import { startHeartbeat } from "./monitor/heartbeat.js";
 import { startDailyReport } from "./monitor/scheduler.js";
 import { startCpuHistorySampler } from "./monitor/cpuHistory.js";
 import { createBot } from "./bot/bot.js";
+import { openSshTunnel, rewriteDsnForTunnel } from "./utils/sshTunnel.js";
 
 async function main(): Promise<void> {
   // ── 1. Config already validated on import ──────────
@@ -26,8 +27,32 @@ async function main(): Promise<void> {
     "Configuration loaded",
   );
 
-  // ── 2. Initialize DB clients ───────────────────────
-  const pgClients = createPgClients();
+  // ── 2. SSH tunnel for Postgres Archive (if configured) ──
+  const pgDsnOverrides: Partial<Record<"01" | "02" | "03", string>> = {};
+  let archiveTunnel: { destroy(): void } | null = null;
+
+  if (config.ARCHIVE_SSH_HOST) {
+    logger.info(
+      { sshHost: config.ARCHIVE_SSH_HOST, localPort: config.ARCHIVE_LOCAL_PORT, remotePort: config.ARCHIVE_REMOTE_PORT },
+      "Opening SSH tunnel for Postgres Archive...",
+    );
+    try {
+      archiveTunnel = await openSshTunnel({
+        sshHost: config.ARCHIVE_SSH_HOST,
+        sshUser: config.ARCHIVE_SSH_USER,
+        remotePort: config.ARCHIVE_REMOTE_PORT,
+        localPort: config.ARCHIVE_LOCAL_PORT,
+      });
+      pgDsnOverrides["03"] = rewriteDsnForTunnel(config.PG_DSN_03, config.ARCHIVE_LOCAL_PORT);
+      logger.info({ rewrittenDsn: pgDsnOverrides["03"]?.replace(/:([^@]+)@/, ":****@") }, "Postgres Archive DSN rewritten for tunnel");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: msg }, "Failed to open SSH tunnel for Postgres Archive — will connect directly (expect timeout)");
+    }
+  }
+
+  // ── 3. Initialize DB clients ───────────────────────
+  const pgClients = createPgClients(pgDsnOverrides);
   const chClients = createChClients();
 
   logger.info(
@@ -40,23 +65,23 @@ async function main(): Promise<void> {
     "Database clients initialized",
   );
 
-  // ── 3. Initialize checker with DB references ──────
+  // ── 4. Initialize checker with DB references ──────
   initChecker(pgClients, chClients);
 
-  // ── 4. Create alert state tracker ─────────────────
+  // ── 5. Create alert state tracker ─────────────────
   const alertState = new AlertState();
 
-  // ── 5. Create and configure Grammy bot ─────────────
+  // ── 6. Create and configure Grammy bot ─────────────
   const bot = createBot();
 
-  // ── 6. Start heartbeat loop ────────────────────────
+  // ── 7. Start heartbeat loop ────────────────────────
   startHeartbeat(bot, alertState);
 
-  // ── 6b. Start daily report scheduler ───────────────
+  // ── 7b. Start daily report scheduler ───────────────
   startDailyReport(bot);
   startCpuHistorySampler();
 
-  // ── 7. Graceful shutdown ───────────────────────────
+  // ── 8. Graceful shutdown ───────────────────────────
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, "Shutdown signal received");
 
@@ -69,6 +94,7 @@ async function main(): Promise<void> {
 
     await closePgClients(pgClients);
     await closeChClients(chClients);
+    archiveTunnel?.destroy();
 
     logger.info("All connections closed. Goodbye.");
     process.exit(0);
@@ -77,7 +103,7 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
-  // ── 8. Start bot (long polling) ────────────────────
+  // ── 9. Start bot (long polling) ────────────────────
   logger.info("Starting Grammy bot (long polling)...");
   await bot.start({
     onStart: (botInfo) => {

@@ -94,6 +94,13 @@ const envSchema = z.object({
   SSH_PORT: z.coerce.number().int().positive().default(22),
   SSH_KEY_PATH: z.string().default(""),
   SSH_PASSPHRASE: z.string().default(""),
+
+  // SSH tunnel for Postgres Archive (locally bound on remote server)
+  // Set ARCHIVE_SSH_HOST to enable the tunnel for PG_DSN_03.
+  ARCHIVE_SSH_HOST: z.string().default(""),
+  ARCHIVE_SSH_USER: z.string().default("root"),
+  ARCHIVE_REMOTE_PORT: z.coerce.number().int().positive().default(5433),
+  ARCHIVE_LOCAL_PORT: z.coerce.number().int().positive().default(15433),
 });
 
 export type Settings = z.infer<typeof envSchema>;

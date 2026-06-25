@@ -45,11 +45,11 @@ function extractPort(dsn: string): number {
  * Create lazy-connect postgres clients for all 3 instances.
  * Logs connection details at startup for debugging.
  */
-export function createPgClients(): PgInstance[] {
+export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03", string>> = {}): PgInstance[] {
   const dsns: Array<{ dsn: string; label: string }> = [
-    { dsn: config.PG_DSN_01, label: config.PG_LABEL_01 },
-    { dsn: config.PG_DSN_02, label: config.PG_LABEL_02 },
-    { dsn: config.PG_DSN_03, label: config.PG_LABEL_03 },
+    { dsn: dsnOverrides["01"] ?? config.PG_DSN_01, label: config.PG_LABEL_01 },
+    { dsn: dsnOverrides["02"] ?? config.PG_DSN_02, label: config.PG_LABEL_02 },
+    { dsn: dsnOverrides["03"] ?? config.PG_DSN_03, label: config.PG_LABEL_03 },
   ];
 
   return dsns.map(({ dsn, label }) => {
