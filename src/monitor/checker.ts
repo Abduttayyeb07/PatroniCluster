@@ -52,7 +52,7 @@ export function initChecker(pg: PgInstance[], ch: ChInstance[]): void {
  * Never throws — individual failures result in null heights.
  */
 export async function collectAllStatus(): Promise<SyncSnapshot> {
-  const pgPingTargets = pgInstances.map((pg) => ({ host: pg.host, port: pg.port }));
+  const pgPingTargets = pgInstances.map((pg) => ({ host: pg.pingHost, port: pg.pingPort }));
   const chPingTargets = chInstances.map((ch) => ({ host: ch.host, port: 8123 }));
 
   // Run all RPC fetches + DB pings + DB heights in parallel

@@ -6,6 +6,9 @@ export interface PgInstance {
   label: string;
   host: string;
   port: number;
+  /** Host/port to TCP-ping. For tunneled instances this is 127.0.0.1:localPort. */
+  pingHost: string;
+  pingPort: number;
   client: Sql;
   dsn: string;
 }
@@ -66,6 +69,11 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
     // stats show the real server IP, not the tunnel's 127.0.0.1.
     const host = extractHost(originalDsn);
     const port = extractPort(originalDsn);
+    // For tunneled instances, ping the local tunnel endpoint instead of the
+    // real host (which is locally bound and unreachable externally).
+    const isTunneled = dsn !== originalDsn;
+    const pingHost = isTunneled ? extractHost(dsn) : host;
+    const pingPort = isTunneled ? extractPort(dsn) : port;
     logger.info(
       { label, dsn: masked, table: config.PG_INDEXER_TABLE },
       `PG client created → ${masked}`,
@@ -75,6 +83,8 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
       label,
       host,
       port,
+      pingHost,
+      pingPort,
       dsn,
       client: postgres(dsn, {
         max: 2,
