@@ -32,6 +32,12 @@ function getUserForHost(host: string): string {
   return process.env[envKey] || "root";
 }
 
+function getPortForHost(host: string): number {
+  const envKey = `SSH_PORT_${host.replace(/\./g, "_")}`;
+  const val = process.env[envKey];
+  return val ? parseInt(val, 10) : config.SSH_PORT;
+}
+
 export interface ServerStats {
   host: string;
   // df -h
@@ -106,7 +112,7 @@ function sshExec(host: string, command: string): Promise<string | null> {
 
     conn.connect({
       host,
-      port: config.SSH_PORT,
+      port: getPortForHost(host),
       username,
       privateKey: key,
       passphrase: config.SSH_PASSPHRASE || undefined,
