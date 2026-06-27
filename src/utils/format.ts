@@ -65,7 +65,24 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
 
   lines.push("");
 
+  // Section headers — "UAT" label (case-insensitive) starts a new section
+  lines.push(`*── MAIN CLUSTER ──*`, "");
+
+  let inUat = false;
+
   for (const db of dbs) {
+    const isUat = db.label.toLowerCase().includes("uat");
+
+    if (isUat && !inUat) {
+      inUat = true;
+      lines.push(
+        `\`${"─".repeat(32)}\``,
+        `*UAT*`,
+        `\`${"─".repeat(32)}\``,
+        "",
+      );
+    }
+
     const srvEmoji = db.pingOk ? "🟢" : "🔴";
     const dbEmoji = db.isDown ? "🔴" : gapEmoji(db.gap);
     const pingStr = db.pingOk ? `${db.pingMs}ms` : "FAIL";
