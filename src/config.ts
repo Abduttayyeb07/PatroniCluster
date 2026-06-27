@@ -117,6 +117,7 @@ const envSchema = z.object({
   // Set TESTNET_SSH_HOST to enable the tunnel for PG_DSN_05.
   TESTNET_SSH_HOST: z.string().default(""),
   TESTNET_SSH_USER: z.string().default("root"),
+  TESTNET_SSH_PORT: z.coerce.number().int().positive().default(22),
   TESTNET_REMOTE_PORT: z.coerce.number().int().positive().default(5434),
   TESTNET_LOCAL_PORT: z.coerce.number().int().positive().default(15434),
 });

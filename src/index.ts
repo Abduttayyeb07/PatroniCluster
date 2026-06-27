@@ -63,6 +63,7 @@ async function main(): Promise<void> {
       testnetTunnel = await openSshTunnel({
         sshHost: config.TESTNET_SSH_HOST,
         sshUser: config.TESTNET_SSH_USER,
+        sshPort: config.TESTNET_SSH_PORT,
         remotePort: config.TESTNET_REMOTE_PORT,
         localPort: config.TESTNET_LOCAL_PORT,
       });
