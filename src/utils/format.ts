@@ -65,40 +65,34 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
 
   lines.push("");
 
-  // Section headers — "UAT" label (case-insensitive) starts a new section
-  lines.push(`*── MAIN CLUSTER ──*`, "");
+  const mainDbs = dbs.filter((db) => !db.label.toLowerCase().includes("uat"));
+  const uatDbs  = dbs.filter((db) =>  db.label.toLowerCase().includes("uat"));
 
-  let inUat = false;
-
-  for (const db of dbs) {
-    const isUat = db.label.toLowerCase().includes("uat");
-
-    if (isUat && !inUat) {
-      inUat = true;
-      lines.push(
-        `\`${"─".repeat(32)}\``,
-        `*UAT*`,
-        `\`${"─".repeat(32)}\``,
-        "",
-      );
-    }
-
+  function renderDb(db: DbStatus): void {
     const srvEmoji = db.pingOk ? "🟢" : "🔴";
-    const dbEmoji = db.isDown ? "🔴" : gapEmoji(db.gap);
-    const pingStr = db.pingOk ? `${db.pingMs}ms` : "FAIL";
-    const heightStr = db.height !== null
-      ? db.height.toLocaleString()
-      : "DOWN";
-    const gapStr = db.gap !== null
-      ? db.gap.toLocaleString()
-      : "N/A";
-
+    const dbEmoji  = db.isDown ? "🔴" : gapEmoji(db.gap);
+    const pingStr  = db.pingOk ? `${db.pingMs}ms` : "FAIL";
+    const heightStr = db.height !== null ? db.height.toLocaleString() : "DOWN";
+    const gapStr    = db.gap    !== null ? db.gap.toLocaleString()    : "N/A";
     lines.push(
       `>*${esc(db.label)}*  ·  ${esc(db.host)}`,
       `>Srv: ${srvEmoji} ${esc(pingStr)}  ·  DB: ${dbEmoji}`,
       `>H: ${esc(heightStr)}  ·  Gap: ${esc(gapStr)}`,
       "",
     );
+  }
+
+  lines.push(`*── MAIN CLUSTER ──*`, "");
+  for (const db of mainDbs) renderDb(db);
+
+  if (uatDbs.length > 0) {
+    lines.push(
+      `\`${"─".repeat(32)}\``,
+      `*UAT*`,
+      `\`${"─".repeat(32)}\``,
+      "",
+    );
+    for (const db of uatDbs) renderDb(db);
   }
 
   const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
