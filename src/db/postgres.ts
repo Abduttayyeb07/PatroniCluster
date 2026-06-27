@@ -25,11 +25,10 @@ function maskDsn(dsn: string): string {
  */
 function extractHost(dsn: string): string {
   try {
-    return new URL(dsn).hostname;
-  } catch {
-    // Fallback for non-standard DSN formats
-    const match = dsn.match(/@([^:/@]+)/);
+    const match = dsn.match(/@([^:/]+)/);
     return match?.[1] ?? "unknown";
+  } catch {
+    return "unknown";
   }
 }
 
@@ -38,11 +37,10 @@ function extractHost(dsn: string): string {
  */
 function extractPort(dsn: string): number {
   try {
-    const p = new URL(dsn).port;
-    return p ? Number(p) : 5432;
-  } catch {
     const match = dsn.match(/:(\d+)\//);
     return match ? Number(match[1]) : 5432;
+  } catch {
+    return 5432;
   }
 }
 
@@ -50,7 +48,7 @@ function extractPort(dsn: string): number {
  * Create lazy-connect postgres clients for all 3 instances.
  * Logs connection details at startup for debugging.
  */
-export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {}): PgInstance[] {
+export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04", string>> = {}): PgInstance[] {
   // originalDsn is always the real server DSN (used for host/port display and SSH stats).
   // dsn may be rewritten to a tunnel address for the actual connection.
   const dsns: Array<{ dsn: string; originalDsn: string; label: string }> = [
@@ -63,12 +61,6 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
   const dsn04 = dsnOverrides["04"] ?? config.PG_DSN_04;
   if (dsn04) {
     dsns.push({ dsn: dsn04, originalDsn: config.PG_DSN_04, label: config.PG_LABEL_04 });
-  }
-
-  // Testnet is optional — only added when PG_DSN_05 is set
-  const dsn05 = dsnOverrides["05"] ?? config.PG_DSN_05;
-  if (dsn05) {
-    dsns.push({ dsn: dsn05, originalDsn: config.PG_DSN_05, label: config.PG_LABEL_05 });
   }
 
   return dsns.map(({ dsn, originalDsn, label }) => {
@@ -98,9 +90,6 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
         max: 2,
         idle_timeout: 30,
         connect_timeout: 10,
-        connection: {
-          statement_timeout: 15000,
-        },
       }),
     };
   });

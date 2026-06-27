@@ -65,9 +65,8 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
 
   lines.push("");
 
-  const mainDbs    = dbs.filter((db) => !db.label.toLowerCase().includes("uat") && !db.label.toLowerCase().includes("testnet"));
-  const uatDbs     = dbs.filter((db) =>  db.label.toLowerCase().includes("uat"));
-  const testnetDbs = dbs.filter((db) =>  db.label.toLowerCase().includes("testnet"));
+  const mainDbs = dbs.filter((db) => !db.label.toLowerCase().includes("uat"));
+  const uatDbs  = dbs.filter((db) =>  db.label.toLowerCase().includes("uat"));
 
   function renderDb(db: DbStatus): void {
     const srvEmoji = db.pingOk ? "🟢" : "🔴";
@@ -83,22 +82,18 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
     );
   }
 
-  function renderSection(title: string, section: DbStatus[]): void {
-    if (section.length === 0) return;
-    lines.push(
-      `\`${"─".repeat(32)}\``,
-      `*${title}*`,
-      `\`${"─".repeat(32)}\``,
-      "",
-    );
-    for (const db of section) renderDb(db);
-  }
-
   lines.push(`*── MAIN CLUSTER ──*`, "");
   for (const db of mainDbs) renderDb(db);
 
-  renderSection("UAT", uatDbs);
-  renderSection("TESTNET", testnetDbs);
+  if (uatDbs.length > 0) {
+    lines.push(
+      `\`${"─".repeat(32)}\``,
+      `*UAT*`,
+      `\`${"─".repeat(32)}\``,
+      "",
+    );
+    for (const db of uatDbs) renderDb(db);
+  }
 
   const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
   lines.push(`🕐 _${t} UTC_`);

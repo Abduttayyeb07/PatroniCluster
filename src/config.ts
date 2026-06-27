@@ -46,18 +46,16 @@ const envSchema = z.object({
   RPC_URL_03: z.string().url().default("https://public-zigchain-rpc.numia.xyz/"),
   RPC_LABEL_03: z.string().default("Numia"),
 
-  // PostgreSQL — 5 instances
+  // PostgreSQL — 4 instances
   PG_DSN_01: z.string().min(1, "PG_DSN_01 is required"),
   PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),
   PG_DSN_03: z.string().min(1, "PG_DSN_03 is required"),
   PG_DSN_04: z.string().default(""),
-  PG_DSN_05: z.string().default(""),
   PG_INDEXER_TABLE: z.string().min(1).default("indexer_table"),
   PG_LABEL_01: z.string().default("PG-01"),
   PG_LABEL_02: z.string().default("PG-02"),
   PG_LABEL_03: z.string().default("PG-03"),
   PG_LABEL_04: z.string().default("UAT"),
-  PG_LABEL_05: z.string().default("Testnet"),
 
   // Optional shared proxy URL — if set, both ClickHouse clients connect through
   // this URL instead of http://<host>:<port>, while keeping their own db/table/creds.
@@ -100,17 +98,11 @@ const envSchema = z.object({
   SSH_PASSPHRASE: z.string().default(""),
 
   // SSH tunnel for Postgres Archive (locally bound on remote server)
+  // Set ARCHIVE_SSH_HOST to enable the tunnel for PG_DSN_03.
   ARCHIVE_SSH_HOST: z.string().default(""),
   ARCHIVE_SSH_USER: z.string().default("root"),
   ARCHIVE_REMOTE_PORT: z.coerce.number().int().positive().default(5433),
   ARCHIVE_LOCAL_PORT: z.coerce.number().int().positive().default(15433),
-
-  // SSH tunnel for Testnet Postgres (locally bound on remote server)
-  TESTNET_SSH_HOST: z.string().default(""),
-  TESTNET_SSH_USER: z.string().default("root"),
-  TESTNET_SSH_PORT: z.coerce.number().int().positive().default(22),
-  TESTNET_REMOTE_PORT: z.coerce.number().int().positive().default(5434),
-  TESTNET_LOCAL_PORT: z.coerce.number().int().positive().default(15434),
 
   // SSH tunnel for ClickHouse Primary (locally bound on remote server)
   // Set CH_TUNNEL_SSH_HOST to enable the tunnel for CH instance 01.
