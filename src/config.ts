@@ -112,6 +112,13 @@ const envSchema = z.object({
   CH_TUNNEL_SSH_USER: z.string().default("root"),
   CH_TUNNEL_REMOTE_PORT: z.coerce.number().int().positive().default(9090),
   CH_TUNNEL_LOCAL_PORT: z.coerce.number().int().positive().default(19090),
+
+  // SSH tunnel for Testnet Postgres (locally bound on 95.216.44.77:5434)
+  // Set TESTNET_SSH_HOST to enable the tunnel for PG_DSN_05.
+  TESTNET_SSH_HOST: z.string().default(""),
+  TESTNET_SSH_USER: z.string().default("root"),
+  TESTNET_REMOTE_PORT: z.coerce.number().int().positive().default(5434),
+  TESTNET_LOCAL_PORT: z.coerce.number().int().positive().default(15434),
 });
 
 export type Settings = z.infer<typeof envSchema>;

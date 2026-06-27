@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   );
 
   // ── 2. SSH tunnel for Postgres Archive (if configured) ──
-  const pgDsnOverrides: Partial<Record<"01" | "02" | "03", string>> = {};
+  const pgDsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {};
   let archiveTunnel: { destroy(): void } | null = null;
 
   if (config.ARCHIVE_SSH_HOST) {
@@ -51,7 +51,30 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── 3. SSH tunnel for ClickHouse Primary (if configured) ──
+  // ── 3. SSH tunnel for Testnet Postgres (if configured) ──
+  let testnetTunnel: { destroy(): void } | null = null;
+
+  if (config.TESTNET_SSH_HOST) {
+    logger.info(
+      { sshHost: config.TESTNET_SSH_HOST, localPort: config.TESTNET_LOCAL_PORT, remotePort: config.TESTNET_REMOTE_PORT },
+      "Opening SSH tunnel for Testnet Postgres...",
+    );
+    try {
+      testnetTunnel = await openSshTunnel({
+        sshHost: config.TESTNET_SSH_HOST,
+        sshUser: config.TESTNET_SSH_USER,
+        remotePort: config.TESTNET_REMOTE_PORT,
+        localPort: config.TESTNET_LOCAL_PORT,
+      });
+      pgDsnOverrides["05"] = rewriteDsnForTunnel(config.PG_DSN_05, config.TESTNET_LOCAL_PORT);
+      logger.info({ rewrittenDsn: pgDsnOverrides["05"]?.replace(/:([^@]+)@/, ":****@") }, "Testnet Postgres DSN rewritten for tunnel");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: msg }, "Failed to open SSH tunnel for Testnet Postgres — will connect directly (expect timeout)");
+    }
+  }
+
+  // ── 5. SSH tunnel for ClickHouse Primary (if configured) ──
   let chUrlOverride: string | undefined;
   let chTunnel: { destroy(): void } | null = null;
 
@@ -119,6 +142,7 @@ async function main(): Promise<void> {
     await closePgClients(pgClients);
     await closeChClients(chClients);
     archiveTunnel?.destroy();
+    testnetTunnel?.destroy();
     chTunnel?.destroy();
 
     logger.info("All connections closed. Goodbye.");
