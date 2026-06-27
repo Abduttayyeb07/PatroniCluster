@@ -48,7 +48,7 @@ function extractPort(dsn: string): number {
  * Create lazy-connect postgres clients for all 3 instances.
  * Logs connection details at startup for debugging.
  */
-export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04", string>> = {}): PgInstance[] {
+export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {}): PgInstance[] {
   // originalDsn is always the real server DSN (used for host/port display and SSH stats).
   // dsn may be rewritten to a tunnel address for the actual connection.
   const dsns: Array<{ dsn: string; originalDsn: string; label: string }> = [
@@ -61,6 +61,12 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
   const dsn04 = dsnOverrides["04"] ?? config.PG_DSN_04;
   if (dsn04) {
     dsns.push({ dsn: dsn04, originalDsn: config.PG_DSN_04, label: config.PG_LABEL_04 });
+  }
+
+  // Testnet is optional — only added when PG_DSN_05 is set
+  const dsn05 = dsnOverrides["05"] ?? config.PG_DSN_05;
+  if (dsn05) {
+    dsns.push({ dsn: dsn05, originalDsn: config.PG_DSN_05, label: config.PG_LABEL_05 });
   }
 
   return dsns.map(({ dsn, originalDsn, label }) => {
