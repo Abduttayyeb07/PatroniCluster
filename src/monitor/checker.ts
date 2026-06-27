@@ -65,7 +65,7 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
     // PG heights
     ...pgInstances.map((pg) => fetchPgHeight(pg.client, pg.label)),
     // CH heights
-    ...chInstances.map((ch) => fetchChHeight(ch.client, ch.table, ch.label)),
+    ...chInstances.map((ch) => fetchChHeight(ch.client, ch.database, ch.table, ch.label)),
   ]);
 
   const allRpcs = rpcs as RpcEndpointResult[];
@@ -210,7 +210,7 @@ export async function collectLatency(): Promise<
     chInstances.map(async (ch) => {
       const ping = await tcpPing(ch.host, 8123);
       const qStart = performance.now();
-      await fetchChHeight(ch.client, ch.table, ch.label);
+      await fetchChHeight(ch.client, ch.database, ch.table, ch.label);
       const queryMs = Math.round(performance.now() - qStart);
       results.push({ label: ch.label, host: ch.host, port: 8123, pingOk: ping.ok, pingMs: ping.latencyMs, queryMs });
     }),

@@ -59,11 +59,12 @@ export function createChClients(urlOverride?: string): ChInstance[] {
  */
 export async function fetchChHeight(
   client: ClickHouseClient,
+  database: string,
   table: string,
   label: string,
 ): Promise<number | null> {
   try {
-    const query = `SELECT MAX(height) AS height FROM ${table}`;
+    const query = `SELECT MAX(height) AS height FROM ${database}.${table}`;
     logger.debug({ label, query }, "CH height query executing");
 
     const resultSet = await client.query({
