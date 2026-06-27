@@ -100,11 +100,17 @@ const envSchema = z.object({
   SSH_PASSPHRASE: z.string().default(""),
 
   // SSH tunnel for Postgres Archive (locally bound on remote server)
-  // Set ARCHIVE_SSH_HOST to enable the tunnel for PG_DSN_03.
   ARCHIVE_SSH_HOST: z.string().default(""),
   ARCHIVE_SSH_USER: z.string().default("root"),
   ARCHIVE_REMOTE_PORT: z.coerce.number().int().positive().default(5433),
   ARCHIVE_LOCAL_PORT: z.coerce.number().int().positive().default(15433),
+
+  // SSH tunnel for Testnet Postgres (locally bound on remote server)
+  TESTNET_SSH_HOST: z.string().default(""),
+  TESTNET_SSH_USER: z.string().default("root"),
+  TESTNET_SSH_PORT: z.coerce.number().int().positive().default(22),
+  TESTNET_REMOTE_PORT: z.coerce.number().int().positive().default(5434),
+  TESTNET_LOCAL_PORT: z.coerce.number().int().positive().default(15434),
 
   // SSH tunnel for ClickHouse Primary (locally bound on remote server)
   // Set CH_TUNNEL_SSH_HOST to enable the tunnel for CH instance 01.
