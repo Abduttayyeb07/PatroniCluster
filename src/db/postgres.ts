@@ -25,10 +25,11 @@ function maskDsn(dsn: string): string {
  */
 function extractHost(dsn: string): string {
   try {
-    const match = dsn.match(/@([^:/]+)/);
-    return match?.[1] ?? "unknown";
+    return new URL(dsn).hostname;
   } catch {
-    return "unknown";
+    // Fallback for non-standard DSN formats
+    const match = dsn.match(/@([^:/@]+)/);
+    return match?.[1] ?? "unknown";
   }
 }
 
@@ -37,10 +38,11 @@ function extractHost(dsn: string): string {
  */
 function extractPort(dsn: string): number {
   try {
+    const p = new URL(dsn).port;
+    return p ? Number(p) : 5432;
+  } catch {
     const match = dsn.match(/:(\d+)\//);
     return match ? Number(match[1]) : 5432;
-  } catch {
-    return 5432;
   }
 }
 
@@ -96,6 +98,9 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
         max: 2,
         idle_timeout: 30,
         connect_timeout: 10,
+        connection: {
+          statement_timeout: 15000,
+        },
       }),
     };
   });
