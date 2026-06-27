@@ -51,11 +51,13 @@ const envSchema = z.object({
   PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),
   PG_DSN_03: z.string().min(1, "PG_DSN_03 is required"),
   PG_DSN_04: z.string().default(""),
+  PG_DSN_05: z.string().default(""),
   PG_INDEXER_TABLE: z.string().min(1).default("indexer_table"),
   PG_LABEL_01: z.string().default("PG-01"),
   PG_LABEL_02: z.string().default("PG-02"),
   PG_LABEL_03: z.string().default("PG-03"),
   PG_LABEL_04: z.string().default("UAT"),
+  PG_LABEL_05: z.string().default("Testnet"),
 
   // Optional shared proxy URL — if set, both ClickHouse clients connect through
   // this URL instead of http://<host>:<port>, while keeping their own db/table/creds.
