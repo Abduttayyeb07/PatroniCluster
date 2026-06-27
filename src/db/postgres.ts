@@ -25,7 +25,7 @@ function maskDsn(dsn: string): string {
  */
 function extractHost(dsn: string): string {
   try {
-    const match = dsn.match(/@([^:/]+)/);
+    const match = dsn.match(/.*@([^:/]+)/); // greedy — matches LAST @ so passwords with @ don't break it
     return match?.[1] ?? "unknown";
   } catch {
     return "unknown";
