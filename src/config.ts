@@ -70,6 +70,15 @@ const envSchema = z.object({
   CH_TABLE_01: z.string().min(1).default("indexer_table"),
   CH_LABEL_01: z.string().default("CH-01"),
 
+  // ClickHouse — Instance 02 (optional, added when CH_HOST_02 is set)
+  CH_HOST_02: z.string().default(""),
+  CH_PORT_02: z.coerce.number().int().positive().default(8123),
+  CH_USER_02: z.string().default("default"),
+  CH_PASS_02: z.string().default(""),
+  CH_DB_02: z.string().default("default"),
+  CH_TABLE_02: z.string().min(1).default("indexer_table"),
+  CH_LABEL_02: z.string().default("CH-02"),
+
   // Thresholds
   ALERT_GAP_THRESHOLD: z.coerce.number().int().positive().default(500),
   RECOVERY_GAP_THRESHOLD: z.coerce.number().int().positive().default(100),

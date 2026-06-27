@@ -27,6 +27,19 @@ export function createChClients(urlOverride?: string): ChInstance[] {
     },
   ];
 
+  // CH_02 is optional — only added when CH_HOST_02 is set
+  if (config.CH_HOST_02) {
+    configs.push({
+      label: config.CH_LABEL_02,
+      host: config.CH_HOST_02,
+      port: config.CH_PORT_02,
+      user: config.CH_USER_02,
+      password: config.CH_PASS_02,
+      database: config.CH_DB_02,
+      table: config.CH_TABLE_02,
+    });
+  }
+
   return configs.map(({ label, host, port, user, password, database, table }) => {
     const url = urlOverride ?? (config.CLICKHOUSE_URLS || `http://${host}:${port}`);
     logger.info(
