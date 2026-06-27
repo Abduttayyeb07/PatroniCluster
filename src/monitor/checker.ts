@@ -48,6 +48,21 @@ export function initChecker(pg: PgInstance[], ch: ChInstance[]): void {
 }
 
 /**
+ * Wraps a promise with a hard deadline. Returns fallback if the promise doesn't
+ * settle in time. Prevents firewall-dropped TCP connections from hanging forever
+ * (connect_timeout only fires after the connection is established; a DROP rule
+ * means the SYN never gets a response and the OS retransmit timer (~2 min) runs).
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
+const FETCH_TIMEOUT_MS = 15_000;
+
+/**
  * Collect sync status from ALL databases + all RPCs + TCP pings concurrently.
  * Never throws — individual failures result in null heights.
  */
@@ -62,10 +77,10 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
     ...pgPingTargets.map((t) => tcpPing(t.host, t.port)),
     // CH pings
     ...chPingTargets.map((t) => tcpPing(t.host, t.port)),
-    // PG heights
-    ...pgInstances.map((pg) => fetchPgHeight(pg.client, pg.label)),
+    // PG heights — capped at FETCH_TIMEOUT_MS so a hung TCP SYN doesn't stall the UI
+    ...pgInstances.map((pg) => withTimeout(fetchPgHeight(pg.client, pg.label), FETCH_TIMEOUT_MS, null)),
     // CH heights
-    ...chInstances.map((ch) => fetchChHeight(ch.client, ch.database, ch.table, ch.label)),
+    ...chInstances.map((ch) => withTimeout(fetchChHeight(ch.client, ch.database, ch.table, ch.label), FETCH_TIMEOUT_MS, null)),
   ]);
 
   const allRpcs = rpcs as RpcEndpointResult[];
