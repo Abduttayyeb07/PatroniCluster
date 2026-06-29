@@ -71,7 +71,7 @@ export async function fetchRpcHeight(): Promise<RpcResult> {
 }
 
 /**
- * Fetch all 3 RPC endpoints concurrently and return each result with its label/url.
+ * Fetch all 3 mainnet RPC endpoints concurrently and return each result with its label/url.
  */
 export async function fetchAllRpcHeights(): Promise<RpcEndpointResult[]> {
   return Promise.all([
@@ -79,4 +79,12 @@ export async function fetchAllRpcHeights(): Promise<RpcEndpointResult[]> {
     fetchRpcHeightFrom(config.RPC_URL_02, config.RPC_LABEL_02),
     fetchRpcHeightFrom(config.RPC_URL_03, config.RPC_LABEL_03),
   ]);
+}
+
+/**
+ * Fetch the testnet RPC height. Returns null result if TESTNET_RPC_URL is not configured.
+ */
+export async function fetchTestnetRpcHeight(): Promise<RpcEndpointResult | null> {
+  if (!config.TESTNET_RPC_URL) return null;
+  return fetchRpcHeightFrom(config.TESTNET_RPC_URL, config.TESTNET_RPC_LABEL);
 }

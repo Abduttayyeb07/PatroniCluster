@@ -1,4 +1,4 @@
-import { fetchAllRpcHeights, type RpcEndpointResult } from "../rpc.js";
+import { fetchAllRpcHeights, fetchTestnetRpcHeight, type RpcEndpointResult } from "../rpc.js";
 import {
   type PgInstance,
   fetchPgHeight,
@@ -30,6 +30,9 @@ export interface SyncSnapshot {
   rpcLatencyMs: number;
   /** All RPC endpoint results for display/comparison */
   rpcs: RpcEndpointResult[];
+  /** Testnet RPC result — used for gap calculation of testnet-labelled DBs */
+  testnetRpc: RpcEndpointResult | null;
+  testnetRpcHeight: number | null;
   dbs: DbStatus[];
   timestamp: Date;
 }
@@ -70,9 +73,10 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
   const pgPingTargets = pgInstances.map((pg) => ({ host: pg.pingHost, port: pg.pingPort }));
   const chPingTargets = chInstances.map((ch) => ({ host: ch.host, port: 8123 }));
 
-  // Run all RPC fetches + DB pings + DB heights in parallel
-  const [rpcs, ...rest] = await Promise.all([
+  // Run all RPC fetches (mainnet + testnet) + DB pings + DB heights in parallel
+  const [rpcs, testnetRpc, ...rest] = await Promise.all([
     fetchAllRpcHeights(),
+    fetchTestnetRpcHeight(),
     // PG pings
     ...pgPingTargets.map((t) => tcpPing(t.host, t.port)),
     // CH pings
@@ -84,8 +88,10 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
   ]);
 
   const allRpcs = rpcs as RpcEndpointResult[];
+  const testnetRpcResult = (testnetRpc as RpcEndpointResult | null);
+  const testnetRpcHeight: number | null = testnetRpcResult?.height ?? null;
 
-  // Canonical height: primary RPC first, then first available fallback
+  // Canonical mainnet height: primary RPC first, then first available fallback
   let rpcHeight: number | null = allRpcs[0]?.height ?? null;
   let rpcLatencyMs: number = allRpcs[0]?.latencyMs ?? 0;
   if (rpcHeight === null) {
@@ -112,7 +118,10 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
   pgInstances.forEach((pg, i) => {
     const ping = pgPings[i];
     const height = pgHeights[i] ?? null;
-    const gap = rpcHeight !== null && height !== null ? rpcHeight - height : null;
+    // Testnet-labelled DBs compare against the testnet RPC, not mainnet
+    const isTestnet = pg.label.toLowerCase().includes("testnet");
+    const refHeight = isTestnet ? testnetRpcHeight : rpcHeight;
+    const gap = refHeight !== null && height !== null ? refHeight - height : null;
     dbs.push({
       label: pg.label,
       type: "PostgreSQL",
@@ -129,7 +138,9 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
   chInstances.forEach((ch, i) => {
     const ping = chPings[i];
     const height = chHeights[i] ?? null;
-    const gap = rpcHeight !== null && height !== null ? rpcHeight - height : null;
+    const isTestnet = ch.label.toLowerCase().includes("testnet");
+    const refHeight = isTestnet ? testnetRpcHeight : rpcHeight;
+    const gap = refHeight !== null && height !== null ? refHeight - height : null;
     dbs.push({
       label: ch.label,
       type: "ClickHouse",
@@ -147,6 +158,8 @@ export async function collectAllStatus(): Promise<SyncSnapshot> {
     rpcHeight,
     rpcLatencyMs,
     rpcs: allRpcs,
+    testnetRpc: testnetRpcResult,
+    testnetRpcHeight,
     dbs,
     timestamp: new Date(),
   };

@@ -46,6 +46,10 @@ const envSchema = z.object({
   RPC_URL_03: z.string().url().default("https://public-zigchain-rpc.numia.xyz/"),
   RPC_LABEL_03: z.string().default("Numia"),
 
+  // Testnet RPC — used for gap calculation of testnet-labelled DBs
+  TESTNET_RPC_URL: z.string().default(""),
+  TESTNET_RPC_LABEL: z.string().default("Testnet RPC"),
+
   // PostgreSQL — 4 instances
   PG_DSN_01: z.string().min(1, "PG_DSN_01 is required"),
   PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),

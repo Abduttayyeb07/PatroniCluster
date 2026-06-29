@@ -83,7 +83,7 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
     );
   }
 
-  function renderSection(title: string, section: DbStatus[]): void {
+  function renderSection(title: string, section: DbStatus[], rpcLine?: string): void {
     if (section.length === 0) return;
     lines.push(
       `\`${"─".repeat(32)}\``,
@@ -91,6 +91,7 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
       `\`${"─".repeat(32)}\``,
       "",
     );
+    if (rpcLine) lines.push(rpcLine, "");
     for (const db of section) renderDb(db);
   }
 
@@ -98,7 +99,12 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
   for (const db of mainDbs) renderDb(db);
 
   renderSection("UAT", uatDbs);
-  renderSection("Zigchain Testnet Indexer Postgres", testnetDbs);
+
+  // Testnet section — show testnet RPC height if available
+  const testnetRpcLine = snapshot.testnetRpc
+    ? `>${snapshot.testnetRpc.height !== null ? "🟢" : "🔴"} *${esc(snapshot.testnetRpc.label)}:* ${snapshot.testnetRpc.height !== null ? esc(snapshot.testnetRpc.height.toLocaleString()) : "DOWN"}  ⏱ ${snapshot.testnetRpc.height !== null ? esc(`${snapshot.testnetRpc.latencyMs}ms`) : "—"}`
+    : undefined;
+  renderSection("Zigchain Testnet Indexer Postgres", testnetDbs, testnetRpcLine);
 
   const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
   lines.push(`🕐 _${t} UTC_`);
