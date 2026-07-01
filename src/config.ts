@@ -103,6 +103,14 @@ const envSchema = z.object({
   SSH_KEY_PATH: z.string().default(""),
   SSH_PASSPHRASE: z.string().default(""),
 
+  // SSH tunnel for Patroni Primary (internal IP 10.0.1.1, reached via 162.55.80.238)
+  // Set PG01_SSH_HOST to enable the tunnel for PG_DSN_01.
+  PG01_SSH_HOST: z.string().default(""),
+  PG01_SSH_USER: z.string().default("root"),
+  PG01_REMOTE_HOST: z.string().default("10.0.1.1"),
+  PG01_REMOTE_PORT: z.coerce.number().int().positive().default(5432),
+  PG01_LOCAL_PORT: z.coerce.number().int().positive().default(15432),
+
   // SSH tunnel for Postgres Archive (locally bound on remote server)
   // Set ARCHIVE_SSH_HOST to enable the tunnel for PG_DSN_03.
   ARCHIVE_SSH_HOST: z.string().default(""),
