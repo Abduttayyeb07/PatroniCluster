@@ -28,30 +28,10 @@ async function main(): Promise<void> {
   );
 
   // ── 2. SSH tunnels for PostgreSQL instances ───────────
+  // NOTE: Patroni Primary (10.0.1.1) is reached directly over WireGuard —
+  // no SSH tunnel needed, PG_DSN_01 connects straight through.
   const pgDsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {};
-  let pg01Tunnel: { destroy(): void } | null = null;
   let archiveTunnel: { destroy(): void } | null = null;
-
-  if (config.PG01_SSH_HOST) {
-    logger.info(
-      { sshHost: config.PG01_SSH_HOST, remoteHost: config.PG01_REMOTE_HOST, localPort: config.PG01_LOCAL_PORT },
-      "Opening SSH tunnel for Patroni Primary...",
-    );
-    try {
-      pg01Tunnel = await openSshTunnel({
-        sshHost: config.PG01_SSH_HOST,
-        sshUser: config.PG01_SSH_USER,
-        remoteHost: config.PG01_REMOTE_HOST,
-        remotePort: config.PG01_REMOTE_PORT,
-        localPort: config.PG01_LOCAL_PORT,
-      });
-      pgDsnOverrides["01"] = rewriteDsnForTunnel(config.PG_DSN_01, config.PG01_LOCAL_PORT);
-      logger.info({ rewrittenDsn: pgDsnOverrides["01"]?.replace(/:([^@]+)@/, ":****@") }, "Patroni Primary DSN rewritten for tunnel");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err: msg }, "Failed to open SSH tunnel for Patroni Primary — will connect directly");
-    }
-  }
 
   if (config.ARCHIVE_SSH_HOST) {
     logger.info(
@@ -164,7 +144,6 @@ async function main(): Promise<void> {
 
     await closePgClients(pgClients);
     await closeChClients(chClients);
-    pg01Tunnel?.destroy();
     archiveTunnel?.destroy();
     testnetTunnel?.destroy();
     chTunnel?.destroy();
