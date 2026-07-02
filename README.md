@@ -1,4 +1,4 @@
-# Server Monitor Bot
+# DataBase Monitor Bot
 
 Production-ready Telegram bot that monitors 5 blockchain indexer databases (3 PostgreSQL + 2 ClickHouse) against the live ZigChain RPC endpoint. Fires alerts when any DB falls behind, sends recovery notifications when sync is restored, and provides interactive inline keyboard controls for on-demand status checks.
 
