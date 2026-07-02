@@ -81,25 +81,28 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
     try {
       const snapshot = await collectAllStatus();
 
-      // ── RPC check ────────────────────────────────
-      if (snapshot.rpcHeight === null) {
+      // ── RPC check (mainnet) ───────────────────────
+      const mainnetRpcDown = snapshot.rpcHeight === null;
+      if (mainnetRpcDown) {
         if (state.shouldAlertRpcDown()) {
           state.markRpcDown();
           await broadcastAlert(bot, formatRpcDown(snapshot.rpcs));
           logger.warn("RPC down alert sent");
         }
-        // Can't check DB gaps without RPC — skip DB checks
-        return;
-      }
-
-      // RPC is up — clear rpc-down state
-      if (state.isRpcDown()) {
+      } else if (state.isRpcDown()) {
+        // RPC is up — clear rpc-down state
         state.markRpcUp();
         logger.info("RPC recovered");
       }
 
       // ── DB checks ────────────────────────────────
+      // Testnet DBs are gapped against the testnet RPC, so mainnet being down
+      // doesn't block their checks — only skip a DB if its own reference RPC is down.
       for (const db of snapshot.dbs) {
+        const isTestnet = db.label.toLowerCase().includes("testnet");
+        const refRpcDown = isTestnet ? snapshot.testnetRpcHeight === null : mainnetRpcDown;
+        if (refRpcDown) continue;
+
         // DB is completely unreachable
         if (db.isDown) {
           if (state.shouldAlert(db.label, "down")) {
@@ -117,9 +120,11 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
         if (db.gap !== null && db.gap > alertThreshold) {
           if (state.shouldAlert(db.label, "lagging")) {
             state.markAlerted(db.label, "lagging");
+            // refRpcDown already ruled out null here — safe to assert non-null
+            const refHeight = (isTestnet ? snapshot.testnetRpcHeight : snapshot.rpcHeight) as number;
             await broadcastAlert(
               bot,
-              formatAlert(db, snapshot.rpcHeight),
+              formatAlert(db, refHeight),
             );
             logger.warn(
               { label: db.label, gap: db.gap },
