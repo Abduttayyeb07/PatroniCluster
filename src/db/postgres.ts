@@ -9,8 +9,25 @@ export interface PgInstance {
   /** Host/port to TCP-ping. For tunneled instances this is 127.0.0.1:localPort. */
   pingHost: string;
   pingPort: number;
+  /**
+   * Host to SSH into for server stats (df/free/uptime). Defaults to `host`,
+   * but can be overridden via SSH_HOST_FOR_<IP> when the DB host is an
+   * internal address (e.g. WireGuard IP) with no SSH daemon reachable there —
+   * SSH still needs the real public host.
+   */
+  sshHost: string;
   client: Sql;
   dsn: string;
+}
+
+/**
+ * Resolve the real SSH-reachable host for a DB host that may be an internal
+ * address. Looks for SSH_HOST_FOR_<IP_WITH_UNDERSCORES>, e.g.
+ * SSH_HOST_FOR_10_0_1_1=162.55.80.238. Falls back to the DB host itself.
+ */
+function resolveSshHost(host: string): string {
+  const envKey = `SSH_HOST_FOR_${host.replace(/\./g, "_")}`;
+  return process.env[envKey] || host;
 }
 
 /**
@@ -80,6 +97,7 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
     const isTunneled = dsn !== originalDsn;
     const pingHost = isTunneled ? extractHost(dsn) : host;
     const pingPort = isTunneled ? extractPort(dsn) : port;
+    const sshHost = resolveSshHost(host);
     logger.info(
       { label, dsn: masked, table: config.PG_INDEXER_TABLE },
       `PG client created → ${masked}`,
@@ -91,6 +109,7 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
       port,
       pingHost,
       pingPort,
+      sshHost,
       dsn,
       client: postgres(dsn, {
         max: 2,

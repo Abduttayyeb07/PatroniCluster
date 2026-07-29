@@ -251,7 +251,7 @@ import { collectAllServerStats, type ServerStats } from "../utils/ssh.js";
 
 export function getAllHosts(): string[] {
   const hosts: string[] = [];
-  for (const pg of pgInstances) hosts.push(pg.host);
+  for (const pg of pgInstances) hosts.push(pg.sshHost);
   for (const ch of chInstances) hosts.push(ch.host);
   const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
   return [...new Set(hosts)].filter((h) => !LOOPBACK.has(h));
