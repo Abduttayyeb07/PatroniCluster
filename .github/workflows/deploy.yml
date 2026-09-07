@@ -28,6 +28,8 @@ jobs:
 
             cd /home/abdullah-mazhar/patroni-bot
 
+            git config --global --add safe.directory /home/abdullah-mazhar/patroni-bot
+
             echo "🔄 Pulling latest code..."
             git pull origin main
 
