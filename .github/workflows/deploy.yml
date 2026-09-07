@@ -18,15 +18,15 @@ jobs:
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: "38.242.211.91"
-          username: "root"
+          host: "46.225.154.247"
+          username: "abdullah-mazhar"
           key_path: /tmp/ssh_key
           passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
           port: 22
           script: |
             set -e
 
-            cd /root/saad/patroni_monitoring/PatroniCluster
+            cd /home/abdullah-mazhar/patroni-bot
 
             echo "🔄 Pulling latest code..."
             git pull origin main
