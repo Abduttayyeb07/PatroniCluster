@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   // ── 2. SSH tunnels for PostgreSQL instances ───────────
   // NOTE: Patroni Primary (10.0.1.1) is reached directly over WireGuard —
   // no SSH tunnel needed, PG_DSN_01 connects straight through.
-  const pgDsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {};
+  const pgDsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05" | "06", string>> = {};
   let archiveTunnel: { destroy(): void } | null = null;
 
   if (config.ARCHIVE_SSH_HOST) {
@@ -74,6 +74,30 @@ async function main(): Promise<void> {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error({ err: msg }, "Failed to open SSH tunnel for Testnet Postgres — will connect directly (expect timeout)");
+    }
+  }
+
+  // ── 4b. SSH tunnel for Red Panda Postgres (if configured) ──
+  let redpandaTunnel: { destroy(): void } | null = null;
+
+  if (config.REDPANDA_SSH_HOST) {
+    logger.info(
+      { sshHost: config.REDPANDA_SSH_HOST, localPort: config.REDPANDA_LOCAL_PORT, remotePort: config.REDPANDA_REMOTE_PORT },
+      "Opening SSH tunnel for Red Panda Postgres...",
+    );
+    try {
+      redpandaTunnel = await openSshTunnel({
+        sshHost: config.REDPANDA_SSH_HOST,
+        sshUser: config.REDPANDA_SSH_USER,
+        sshPort: config.REDPANDA_SSH_PORT,
+        remotePort: config.REDPANDA_REMOTE_PORT,
+        localPort: config.REDPANDA_LOCAL_PORT,
+      });
+      pgDsnOverrides["06"] = rewriteDsnForTunnel(config.PG_DSN_06, config.REDPANDA_LOCAL_PORT);
+      logger.info({ rewrittenDsn: pgDsnOverrides["06"]?.replace(/:([^@]+)@/, ":****@") }, "Red Panda Postgres DSN rewritten for tunnel");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: msg }, "Failed to open SSH tunnel for Red Panda Postgres — will connect directly (expect timeout)");
     }
   }
 
@@ -146,6 +170,7 @@ async function main(): Promise<void> {
     await closeChClients(chClients);
     archiveTunnel?.destroy();
     testnetTunnel?.destroy();
+    redpandaTunnel?.destroy();
     chTunnel?.destroy();
 
     logger.info("All connections closed. Goodbye.");

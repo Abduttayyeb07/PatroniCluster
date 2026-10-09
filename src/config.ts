@@ -51,24 +51,33 @@ const envSchema = z.object({
   TESTNET_RPC_LABEL: z.string().default("Testnet RPC"),
 
   // PostgreSQL — 4 instances
-  PG_DSN_01: z.string().min(1, "PG_DSN_01 is required"),
-  PG_DSN_02: z.string().min(1, "PG_DSN_02 is required"),
-  PG_DSN_03: z.string().min(1, "PG_DSN_03 is required"),
+  PG_DSN_01: z.string().default(""),
+  PG_DSN_02: z.string().default(""),
+  PG_DSN_03: z.string().default(""),
   PG_DSN_04: z.string().default(""),
   PG_DSN_05: z.string().default(""),
+  PG_DSN_06: z.string().default(""),
+  PG_DSN_07: z.string().default(""),
+  PG_DSN_08: z.string().default(""),
+  PG_DSN_09: z.string().default(""),
   PG_INDEXER_TABLE: z.string().min(1).default("indexer_table"),
   PG_LABEL_01: z.string().default("PG-01"),
   PG_LABEL_02: z.string().default("PG-02"),
   PG_LABEL_03: z.string().default("PG-03"),
   PG_LABEL_04: z.string().default("UAT"),
   PG_LABEL_05: z.string().default("Testnet"),
+  PG_LABEL_06: z.string().default("Red Panda Postgres"),
+  PG_LABEL_07: z.string().default("PG-07"),
+  PG_LABEL_08: z.string().default("PG-08"),
+  PG_LABEL_09: z.string().default("PG-09"),
 
   // Optional shared proxy URL — if set, both ClickHouse clients connect through
   // this URL instead of http://<host>:<port>, while keeping their own db/table/creds.
   CLICKHOUSE_URLS: z.string().default(""),
 
   // ClickHouse — Instance 01
-  CH_HOST_01: z.string().min(1, "CH_HOST_01 is required"),
+  // Optional — only added when CH_HOST_01 is set
+  CH_HOST_01: z.string().default(""),
   CH_PORT_01: z.coerce.number().int().positive().default(8123),
   CH_USER_01: z.string().default("default"),
   CH_PASS_01: z.string().default(""),
@@ -84,6 +93,31 @@ const envSchema = z.object({
   CH_DB_02: z.string().default("default"),
   CH_TABLE_02: z.string().min(1).default("indexer_table"),
   CH_LABEL_02: z.string().default("CH-02"),
+
+  // ClickHouse — Instances 03, 04, 05 (optional, each added when its CH_HOST_NN is set)
+  CH_HOST_03: z.string().default(""),
+  CH_PORT_03: z.coerce.number().int().positive().default(8123),
+  CH_USER_03: z.string().default("default"),
+  CH_PASS_03: z.string().default(""),
+  CH_DB_03: z.string().default("default"),
+  CH_TABLE_03: z.string().min(1).default("indexer_table"),
+  CH_LABEL_03: z.string().default("CH-03"),
+
+  CH_HOST_04: z.string().default(""),
+  CH_PORT_04: z.coerce.number().int().positive().default(8123),
+  CH_USER_04: z.string().default("default"),
+  CH_PASS_04: z.string().default(""),
+  CH_DB_04: z.string().default("default"),
+  CH_TABLE_04: z.string().min(1).default("indexer_table"),
+  CH_LABEL_04: z.string().default("CH-04"),
+
+  CH_HOST_05: z.string().default(""),
+  CH_PORT_05: z.coerce.number().int().positive().default(8123),
+  CH_USER_05: z.string().default("default"),
+  CH_PASS_05: z.string().default(""),
+  CH_DB_05: z.string().default("default"),
+  CH_TABLE_05: z.string().min(1).default("indexer_table"),
+  CH_LABEL_05: z.string().default("CH-05"),
 
   // Thresholds
   ALERT_GAP_THRESHOLD: z.coerce.number().int().positive().default(500),
@@ -124,6 +158,14 @@ const envSchema = z.object({
   TESTNET_SSH_PORT: z.coerce.number().int().positive().default(22),
   TESTNET_REMOTE_PORT: z.coerce.number().int().positive().default(5434),
   TESTNET_LOCAL_PORT: z.coerce.number().int().positive().default(15434),
+
+  // SSH tunnel for Red Panda Postgres (locally bound on 66.206.24.98:6433)
+  // Set REDPANDA_SSH_HOST to enable the tunnel for PG_DSN_06.
+  REDPANDA_SSH_HOST: z.string().default(""),
+  REDPANDA_SSH_USER: z.string().default("root"),
+  REDPANDA_SSH_PORT: z.coerce.number().int().positive().default(22),
+  REDPANDA_REMOTE_PORT: z.coerce.number().int().positive().default(6433),
+  REDPANDA_LOCAL_PORT: z.coerce.number().int().positive().default(16433),
 });
 
 export type Settings = z.infer<typeof envSchema>;

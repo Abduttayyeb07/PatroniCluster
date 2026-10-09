@@ -65,14 +65,22 @@ function extractPort(dsn: string): number {
  * Create lazy-connect postgres clients for all 3 instances.
  * Logs connection details at startup for debugging.
  */
-export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05", string>> = {}): PgInstance[] {
+export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" | "04" | "05" | "06", string>> = {}): PgInstance[] {
   // originalDsn is always the real server DSN (used for host/port display and SSH stats).
   // dsn may be rewritten to a tunnel address for the actual connection.
-  const dsns: Array<{ dsn: string; originalDsn: string; label: string }> = [
-    { dsn: dsnOverrides["01"] ?? config.PG_DSN_01, originalDsn: config.PG_DSN_01, label: config.PG_LABEL_01 },
-    { dsn: dsnOverrides["02"] ?? config.PG_DSN_02, originalDsn: config.PG_DSN_02, label: config.PG_LABEL_02 },
-    { dsn: dsnOverrides["03"] ?? config.PG_DSN_03, originalDsn: config.PG_DSN_03, label: config.PG_LABEL_03 },
-  ];
+  const dsns: Array<{ dsn: string; originalDsn: string; label: string }> = [];
+
+  // 01 (Patroni Primary) and 02 (Patroni Replica) are optional — only added when the DSN is set
+  if (config.PG_DSN_01) {
+    dsns.push({ dsn: dsnOverrides["01"] ?? config.PG_DSN_01, originalDsn: config.PG_DSN_01, label: config.PG_LABEL_01 });
+  }
+  if (config.PG_DSN_02) {
+    dsns.push({ dsn: dsnOverrides["02"] ?? config.PG_DSN_02, originalDsn: config.PG_DSN_02, label: config.PG_LABEL_02 });
+  }
+  // 03 (Postgres Archive) is optional too
+  if (config.PG_DSN_03) {
+    dsns.push({ dsn: dsnOverrides["03"] ?? config.PG_DSN_03, originalDsn: config.PG_DSN_03, label: config.PG_LABEL_03 });
+  }
 
   // UAT is optional — only added when PG_DSN_04 is set
   const dsn04 = dsnOverrides["04"] ?? config.PG_DSN_04;
@@ -85,6 +93,17 @@ export function createPgClients(dsnOverrides: Partial<Record<"01" | "02" | "03" 
   if (dsn05) {
     dsns.push({ dsn: dsn05, originalDsn: config.PG_DSN_05, label: config.PG_LABEL_05 });
   }
+
+  // Red Panda is optional — only added when PG_DSN_06 is set
+  const dsn06 = dsnOverrides["06"] ?? config.PG_DSN_06;
+  if (dsn06) {
+    dsns.push({ dsn: dsn06, originalDsn: config.PG_DSN_06, label: config.PG_LABEL_06 });
+  }
+
+  // Read nodes A/B and the backup are optional — each added only when its DSN is set
+  if (config.PG_DSN_07) dsns.push({ dsn: config.PG_DSN_07, originalDsn: config.PG_DSN_07, label: config.PG_LABEL_07 });
+  if (config.PG_DSN_08) dsns.push({ dsn: config.PG_DSN_08, originalDsn: config.PG_DSN_08, label: config.PG_LABEL_08 });
+  if (config.PG_DSN_09) dsns.push({ dsn: config.PG_DSN_09, originalDsn: config.PG_DSN_09, label: config.PG_LABEL_09 });
 
   return dsns.map(({ dsn, originalDsn, label }) => {
     const masked = maskDsn(dsn);

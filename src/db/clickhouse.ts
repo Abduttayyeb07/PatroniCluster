@@ -15,8 +15,19 @@ export interface ChInstance {
  * Logs connection details at startup for debugging.
  */
 export function createChClients(urlOverride?: string): ChInstance[] {
-  const configs = [
-    {
+  const configs: Array<{
+    label: string;
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    database: string;
+    table: string;
+  }> = [];
+
+  // CH_01 is optional — only added when CH_HOST_01 is set
+  if (config.CH_HOST_01) {
+    configs.push({
       label: config.CH_LABEL_01,
       host: config.CH_HOST_01,
       port: config.CH_PORT_01,
@@ -24,8 +35,8 @@ export function createChClients(urlOverride?: string): ChInstance[] {
       password: config.CH_PASS_01,
       database: config.CH_DB_01,
       table: config.CH_TABLE_01,
-    },
-  ];
+    });
+  }
 
   // CH_02 is optional — only added when CH_HOST_02 is set
   if (config.CH_HOST_02) {
@@ -37,6 +48,26 @@ export function createChClients(urlOverride?: string): ChInstance[] {
       password: config.CH_PASS_02,
       database: config.CH_DB_02,
       table: config.CH_TABLE_02,
+    });
+  }
+
+  // CH_03..05 are optional — each added only when its CH_HOST_NN is set
+  if (config.CH_HOST_03) {
+    configs.push({
+      label: config.CH_LABEL_03, host: config.CH_HOST_03, port: config.CH_PORT_03,
+      user: config.CH_USER_03, password: config.CH_PASS_03, database: config.CH_DB_03, table: config.CH_TABLE_03,
+    });
+  }
+  if (config.CH_HOST_04) {
+    configs.push({
+      label: config.CH_LABEL_04, host: config.CH_HOST_04, port: config.CH_PORT_04,
+      user: config.CH_USER_04, password: config.CH_PASS_04, database: config.CH_DB_04, table: config.CH_TABLE_04,
+    });
+  }
+  if (config.CH_HOST_05) {
+    configs.push({
+      label: config.CH_LABEL_05, host: config.CH_HOST_05, port: config.CH_PORT_05,
+      user: config.CH_USER_05, password: config.CH_PASS_05, database: config.CH_DB_05, table: config.CH_TABLE_05,
     });
   }
 
