@@ -5,6 +5,8 @@ import { logger } from "../utils/logger.js";
 export interface ChInstance {
   label: string;
   host: string;
+  /** Port the bot actually queries — also used for the TCP ping */
+  port: number;
   client: ClickHouseClient;
   database: string;
   table: string;
@@ -81,6 +83,7 @@ export function createChClients(urlOverride?: string): ChInstance[] {
     return {
       label,
       host,
+      port,
       database,
       table,
       client: createClient({
