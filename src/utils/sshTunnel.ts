@@ -63,10 +63,17 @@ export function openSshTunnel(opts: TunnelOptions): Promise<SshTunnel> {
     let activeConn: InstanceType<typeof Client> | null = null;
     let tcpServer: net.Server | null = null;
 
+    // A failed connection fires both "error" and "close"; only one retry may be pending
+    // at a time, otherwise each failure spawns two more and retries multiply.
+    let reconnectTimer: NodeJS.Timeout | null = null;
+
     function scheduleReconnect(delayMs = 5000) {
-      if (destroyed) return;
+      if (destroyed || reconnectTimer) return;
       logger.warn({ sshHost, delayMs }, "SSH tunnel will reconnect");
-      setTimeout(connect, delayMs);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delayMs);
     }
 
     function connect() {
@@ -160,6 +167,7 @@ export function openSshTunnel(opts: TunnelOptions): Promise<SshTunnel> {
 
     function destroy() {
       destroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       activeConn?.end();
       tcpServer?.close();
     }
