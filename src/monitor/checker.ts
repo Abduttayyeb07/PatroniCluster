@@ -71,7 +71,7 @@ const FETCH_TIMEOUT_MS = 15_000;
  */
 export async function collectAllStatus(): Promise<SyncSnapshot> {
   const pgPingTargets = pgInstances.map((pg) => ({ host: pg.pingHost, port: pg.pingPort }));
-  const chPingTargets = chInstances.map((ch) => ({ host: ch.host, port: ch.port }));
+  const chPingTargets = chInstances.map((ch) => ({ host: ch.pingHost, port: ch.pingPort }));
 
   // Run all RPC fetches (mainnet + testnet) + DB pings + DB heights in parallel
   const [rpcs, testnetRpc, ...rest] = await Promise.all([
@@ -236,7 +236,7 @@ export async function collectLatency(): Promise<
 
   await Promise.all(
     chInstances.map(async (ch) => {
-      const ping = await tcpPing(ch.host, ch.port);
+      const ping = await tcpPing(ch.pingHost, ch.pingPort);
       const qStart = performance.now();
       await fetchChHeight(ch.client, ch.database, ch.table, ch.label);
       const queryMs = Math.round(performance.now() - qStart);

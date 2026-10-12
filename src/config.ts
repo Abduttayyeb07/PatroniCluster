@@ -144,6 +144,13 @@ const envSchema = z.object({
   ARCHIVE_REMOTE_PORT: z.coerce.number().int().positive().default(5433),
   ARCHIVE_LOCAL_PORT: z.coerce.number().int().positive().default(15433),
 
+  // SSH tunnel for ClickHouse Backup (instance 05). Set CH5_TUNNEL_SSH_HOST to enable.
+  CH5_TUNNEL_SSH_HOST: z.string().default(""),
+  CH5_TUNNEL_SSH_USER: z.string().default("root"),
+  CH5_TUNNEL_SSH_PORT: z.coerce.number().int().positive().default(22),
+  CH5_TUNNEL_REMOTE_PORT: z.coerce.number().int().positive().default(8123),
+  CH5_TUNNEL_LOCAL_PORT: z.coerce.number().int().positive().default(18123),
+
   // SSH tunnel for ClickHouse Primary (locally bound on remote server)
   // Set CH_TUNNEL_SSH_HOST to enable the tunnel for CH instance 01.
   CH_TUNNEL_SSH_HOST: z.string().default(""),

@@ -125,9 +125,33 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── 4a. SSH tunnel for ClickHouse Backup (if configured) ──
+  let ch5Tunnel: { destroy(): void } | null = null;
+  let ch5TunnelPort: number | undefined;
+
+  if (config.CH5_TUNNEL_SSH_HOST) {
+    logger.info(
+      { sshHost: config.CH5_TUNNEL_SSH_HOST, sshPort: config.CH5_TUNNEL_SSH_PORT, localPort: config.CH5_TUNNEL_LOCAL_PORT, remotePort: config.CH5_TUNNEL_REMOTE_PORT },
+      "Opening SSH tunnel for ClickHouse Backup...",
+    );
+    try {
+      ch5Tunnel = await openSshTunnel({
+        sshHost: config.CH5_TUNNEL_SSH_HOST,
+        sshUser: config.CH5_TUNNEL_SSH_USER,
+        sshPort: config.CH5_TUNNEL_SSH_PORT,
+        remotePort: config.CH5_TUNNEL_REMOTE_PORT,
+        localPort: config.CH5_TUNNEL_LOCAL_PORT,
+      });
+      ch5TunnelPort = config.CH5_TUNNEL_LOCAL_PORT;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: msg }, "Failed to open SSH tunnel for ClickHouse Backup — will connect directly");
+    }
+  }
+
   // ── 4. Initialize DB clients ───────────────────────
   const pgClients = createPgClients(pgDsnOverrides);
-  const chClients = createChClients(chUrlOverride);
+  const chClients = createChClients(chUrlOverride, ch5TunnelPort);
 
   logger.info(
     {
@@ -172,6 +196,7 @@ async function main(): Promise<void> {
     testnetTunnel?.destroy();
     redpandaTunnel?.destroy();
     chTunnel?.destroy();
+    ch5Tunnel?.destroy();
 
     logger.info("All connections closed. Goodbye.");
     process.exit(0);

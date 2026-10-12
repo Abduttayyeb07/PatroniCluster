@@ -7,6 +7,9 @@ export interface ChInstance {
   host: string;
   /** Port the bot actually queries — also used for the TCP ping */
   port: number;
+  /** Host/port to TCP-ping. For tunneled instances this is 127.0.0.1:localPort. */
+  pingHost: string;
+  pingPort: number;
   client: ClickHouseClient;
   database: string;
   table: string;
@@ -16,7 +19,11 @@ export interface ChInstance {
  * Create ClickHouse clients for both instances.
  * Logs connection details at startup for debugging.
  */
-export function createChClients(urlOverride?: string): ChInstance[] {
+export function createChClients(
+  urlOverride?: string,
+  /** Local port of an SSH tunnel to CH instance 05 (Backup); when set, only that instance connects through it */
+  tunnelPort05?: number,
+): ChInstance[] {
   const configs: Array<{
     label: string;
     host: string;
@@ -25,6 +32,7 @@ export function createChClients(urlOverride?: string): ChInstance[] {
     password: string;
     database: string;
     table: string;
+    tunnelPort?: number;
   }> = [];
 
   // CH_01 is optional — only added when CH_HOST_01 is set
@@ -70,11 +78,14 @@ export function createChClients(urlOverride?: string): ChInstance[] {
     configs.push({
       label: config.CH_LABEL_05, host: config.CH_HOST_05, port: config.CH_PORT_05,
       user: config.CH_USER_05, password: config.CH_PASS_05, database: config.CH_DB_05, table: config.CH_TABLE_05,
+      tunnelPort: tunnelPort05,
     });
   }
 
-  return configs.map(({ label, host, port, user, password, database, table }) => {
-    const url = urlOverride ?? (config.CLICKHOUSE_URLS || `http://${host}:${port}`);
+  return configs.map(({ label, host, port, user, password, database, table, tunnelPort }) => {
+    const url = tunnelPort
+      ? `http://127.0.0.1:${tunnelPort}`
+      : (urlOverride ?? (config.CLICKHOUSE_URLS || `http://${host}:${port}`));
     logger.info(
       { label, url, user, database, table },
       `CH client created → ${url} (db: ${database}, table: ${table})`,
@@ -84,6 +95,8 @@ export function createChClients(urlOverride?: string): ChInstance[] {
       label,
       host,
       port,
+      pingHost: tunnelPort ? "127.0.0.1" : host,
+      pingPort: tunnelPort ?? port,
       database,
       table,
       client: createClient({
