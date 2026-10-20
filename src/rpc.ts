@@ -30,7 +30,7 @@ async function fetchRpcHeightFrom(url: string, label: string): Promise<RpcEndpoi
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    const response = await fetch(`${url}/status`, { signal: controller.signal });
+    const response = await fetch(`${url}/cc/status`, { signal: controller.signal });
     clearTimeout(timeout);
 
     if (!response.ok) {
