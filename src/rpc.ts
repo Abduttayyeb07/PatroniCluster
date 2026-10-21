@@ -38,7 +38,7 @@ async function getStatus(base: string, path: string): Promise<Response> {
 
 /**
  * Fetch the latest block height from a single RPC URL. Never throws.
- * Tries /status first and falls back to /cc/status when the first path is a 404.
+ * Tries /status first and falls back to /cc/status when the first path returns an error (404, 403, ...).
  */
 async function fetchRpcHeightFrom(url: string, label: string): Promise<RpcEndpointResult> {
   const start = performance.now();
@@ -49,8 +49,8 @@ async function fetchRpcHeightFrom(url: string, label: string): Promise<RpcEndpoi
     let response: Response | null = null;
     for (const path of STATUS_PATHS) {
       response = await getStatus(base, path);
-      if (response.status !== 404) break;
-      logger.debug({ label, path }, "RPC status path returned 404, trying next");
+      if (response.ok) break;
+      logger.debug({ label, path, status: response.status }, "RPC status path failed, trying next");
     }
 
     if (!response || !response.ok) {
