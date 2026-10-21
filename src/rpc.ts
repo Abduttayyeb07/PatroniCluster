@@ -20,23 +20,43 @@ interface RpcStatusResponse {
   };
 }
 
+/** Status paths tried in order — some RPC gateways expose it at /status, others at /cc/status. */
+const STATUS_PATHS = ["/status", "/cc/status"];
+
+/**
+ * GET <base><path> with a 10s deadline. Throws on network error/timeout.
+ */
+async function getStatus(base: string, path: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    return await fetch(`${base}${path}`, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Fetch the latest block height from a single RPC URL. Never throws.
+ * Tries /status first and falls back to /cc/status when the first path is a 404.
  */
 async function fetchRpcHeightFrom(url: string, label: string): Promise<RpcEndpointResult> {
   const start = performance.now();
+  // Strip trailing slashes so "https://host/" doesn't produce "https://host//status"
+  const base = url.replace(/\/+$/, "");
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let response: Response | null = null;
+    for (const path of STATUS_PATHS) {
+      response = await getStatus(base, path);
+      if (response.status !== 404) break;
+      logger.debug({ label, path }, "RPC status path returned 404, trying next");
+    }
 
-    const response = await fetch(`${url}/cc/status`, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const latencyMs = Math.round(performance.now() - start);
-      const errMsg = `HTTP ${response.status}`;
-      logger.warn({ label, latencyMs, status: response.status }, "RPC HTTP error");
+      const errMsg = `HTTP ${response?.status ?? "no response"}`;
+      logger.warn({ label, latencyMs, status: response?.status }, "RPC HTTP error");
       return { label, url, height: null, latencyMs, error: errMsg };
     }
 

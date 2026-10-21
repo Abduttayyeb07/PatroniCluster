@@ -96,12 +96,12 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
       }
 
       // ── DB checks ────────────────────────────────
-      // Testnet DBs are gapped against the testnet RPC, so mainnet being down
-      // doesn't block their checks — only skip a DB if its own reference RPC is down.
+      // A DB that is completely unreachable is reported even when the reference RPC is down
+      // (that check needs no height). Lag/recovery checks need the reference RPC, so those are
+      // skipped only for DBs whose own reference RPC is down (testnet DBs use the testnet RPC).
       for (const db of snapshot.dbs) {
         const isTestnet = db.label.toLowerCase().includes("testnet");
         const refRpcDown = isTestnet ? snapshot.testnetRpcHeight === null : mainnetRpcDown;
-        if (refRpcDown) continue;
 
         // DB is completely unreachable
         if (db.isDown) {
@@ -115,6 +115,8 @@ export function startHeartbeat(bot: Bot, state: AlertState): void {
           }
           continue;
         }
+
+        if (refRpcDown) continue;
 
         // DB responded but is lagging
         if (db.gap !== null && db.gap > alertThreshold) {
