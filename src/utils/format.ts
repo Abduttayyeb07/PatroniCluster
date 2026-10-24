@@ -65,9 +65,11 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
 
   lines.push("");
 
-  const mainDbs    = dbs.filter((db) => !db.label.toLowerCase().includes("uat") && !db.label.toLowerCase().includes("testnet"));
+  const isOld      = (db: DbStatus) => db.label.toLowerCase().includes("old db");
+  const mainDbs    = dbs.filter((db) => !db.label.toLowerCase().includes("uat") && !db.label.toLowerCase().includes("testnet") && !isOld(db));
   const uatDbs     = dbs.filter((db) =>  db.label.toLowerCase().includes("uat"));
   const testnetDbs = dbs.filter((db) =>  db.label.toLowerCase().includes("testnet"));
+  const oldDbs     = dbs.filter(isOld);
 
   function renderDb(db: DbStatus): void {
     const srvEmoji = db.pingOk ? "🟢" : "🔴";
@@ -105,6 +107,8 @@ export function formatGlobalStatus(snapshot: SyncSnapshot): string {
     ? `>${snapshot.testnetRpc.height !== null ? "🟢" : "🔴"} *${esc(snapshot.testnetRpc.label)}:* ${snapshot.testnetRpc.height !== null ? esc(snapshot.testnetRpc.height.toLocaleString()) : "DOWN"}  ⏱ ${snapshot.testnetRpc.height !== null ? esc(`${snapshot.testnetRpc.latencyMs}ms`) : "—"}`
     : undefined;
   renderSection("Zigchain Testnet Indexer Postgres", testnetDbs, testnetRpcLine);
+
+  renderSection("Old DB", oldDbs);
 
   const t = esc(timestamp.toISOString().replace("T", " ").slice(0, 19));
   lines.push(`🕐 _${t} UTC_`);
